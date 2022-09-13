@@ -13,6 +13,8 @@ add_library(altro_impl STATIC
 target_link_libraries(altro_impl
   fmt::fmt
   Eigen3::Eigen
+  altro::altro
+  altrocpp::altro
 )
 target_include_directories(altro_impl
   PUBLIC

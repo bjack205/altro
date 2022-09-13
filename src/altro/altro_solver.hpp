@@ -17,12 +17,12 @@ class SolverImpl;  // Forward-declare the implementation. Note this is public, b
 
 class ALTROSolver {
  public:
-  ALTROSolver(int horizon_length);                     // Constructor
-  ALTROSolver(const ALTROSolver& other);               // Copy constructor
-  ALTROSolver(ALTROSolver&& other);                    // Move constructor
-  ALTROSolver& operator=(const ALTROSolver& other);    // Copy assignment
-  ALTROSolver& operator=(ALTROSolver&& other);         // Move assignment
-  ~ALTROSolver();                                      // Destructor
+  ALTROSolver(int horizon_length);                   // Constructor
+  ALTROSolver(const ALTROSolver& other);             // Copy constructor
+  ALTROSolver(ALTROSolver&& other);                  // Move constructor
+  ALTROSolver& operator=(const ALTROSolver& other);  // Copy assignment
+  ALTROSolver& operator=(ALTROSolver&& other);       // Move assignment
+  ~ALTROSolver();                                    // Destructor
 
   /**********************************************
    * Problem definition
@@ -131,6 +131,68 @@ class ALTROSolver {
    */
   void SetCostFunctionProperties(bool is_quadratic, bool Q_is_diagonal, bool R_is_diagonal,
                                  bool H_is_zero, int k_start, int k_stop = 0);
+
+  /**
+   * @brief Define a quadratic cost with diagonal cost matrices
+   *
+   * Cost of the form:
+   * \f[
+   * \frac{1}{2} x^T Q x + q^T x + \frac{1}{2} u^T R u + r^T u + c
+   * \f]
+   * where \f$Q\f$ and \f$R\f$ are diagonal positive semi-definite matrices.
+   *
+   * @param Q_diag (n,) diagonal of quadratic state penalty matrix
+   * @param R_diag (m,) diagonal of quadratic input penalty matrix
+   * @param q (n,) linear state term
+   * @param r (m,) linear input term
+   * @param c constant term
+   * @param k_start Knot point index
+   * @param k_stop (optional) Terminal (non-inclusive) knot point index.
+   */
+  void SetDiagonalCost(const a_float* Q_diag, const a_float* R_diag, const a_float* q,
+                       const a_float* r, a_float c, int k_start, int k_stop = 0);
+
+  /**
+   * @brief Set a general (dense) quadratic cost
+   *
+   * Cost of the form:
+   * \f[
+   * \frac{1}{2} x^T Q x + q^T x + \frac{1}{2} u^T R u + r^T u + u^T H x + c
+   * \f]
+   * where \f$Q\f$ and \f$R\f$ are symmetric positive semi-definite matrices.
+   *
+   * All matrices are assumed to be stored in *column-major* format.
+   *
+   * @param Q (n,n) quadratic state penalty matrix
+   * @param R (m,m) quadratic input penalty matrix
+   * @param H (m,n) quadratic cross-term penalty matrix
+   * @param q (n,) linear state term
+   * @param r (m,) linear input term
+   * @param c constant term
+   * @param k_start Knot point index
+   * @param k_stop (optional) Terminal (non-inclusive) knot point index.
+   */
+  void SetQuadraticCost(const a_float* Q, const a_float* R, const a_float* H, const a_float* q,
+                        const a_float* r, a_float c, int k_start, int k_stop = 0);
+
+  /**
+   * @brief Set an LQR tracking objective
+   *
+   * Cost of the form:
+   * \f[
+   * \frac{1}{2} (x - x_\text{ref})^T Q (x - x_\text{ref})
+   * + \frac{1}{2} (u - u_\text{ref})^T R (u - u_\text{ref})
+   * \f]
+   *
+   * @param Q_diag (n,) diagonal of quadratic state penalty matrix
+   * @param R_diag (m,) diagonal of quadratic input penalty matrix
+   * @param x_ref (n,) state reference
+   * @param u_ref (m,) input reference
+   * @param k_start Knot point index
+   * @param k_stop (optional) Terminal (non-inclusive) knot point index.
+   */
+  void SetLQRCost(const a_float* Q_diag, const a_float* R_diag, const a_float* x_ref,
+                  const a_float* u_ref, int k_start, int k_stop = 0);
 
   /**
    * @brief Set constraint function at a knot point (or range of knot points)
@@ -267,9 +329,9 @@ class ALTROSolver {
   /**********************************************
    * Options
    **********************************************/
-  void SetOptions(SolverOptions opts);
-  SolverOptions& GetOptions();
-  const SolverOptions& GetOptions() const;
+  void SetOptions(AltroOptions opts);
+  AltroOptions& GetOptions();
+  const AltroOptions& GetOptions() const;
 
   /**
    * @brief Set a callback function that is call each iteration (of iLQR).
@@ -310,7 +372,7 @@ class ALTROSolver {
 
  private:
   std::unique_ptr<SolverImpl> solver_;
-//  SolverImpl *solver_;
+  //  SolverImpl *solver_;
 };
 
 }  // namespace altro

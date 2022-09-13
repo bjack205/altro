@@ -11,8 +11,8 @@
 
 namespace altro {
 
-struct SolverOptions {
-  explicit SolverOptions(double max_solve_time);
+struct AltroOptions {
+  explicit AltroOptions(double max_solve_time);
   double tol_cost = 1e-4;
   double tol_cost_intermediate = 1e-4;
   double tol_primal_feasibility = 1e-4;
