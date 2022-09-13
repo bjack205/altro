@@ -1,0 +1,7 @@
+---
+Language:        Cpp
+BasedOnStyle:  Google
+ColumnLimit:     100
+PointerAlignment: Right
+---
+
