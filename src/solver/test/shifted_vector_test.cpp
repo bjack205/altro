@@ -115,4 +115,68 @@ TEST(ShiftedVector, FillEigen) {
   }
 }
 
+TEST(ShiftedVector, IteratorConstructor) {
+  std::vector<float> std_vec;
+  const int len = 5;
+  for (int i = 0; i < len; ++i) {
+    std_vec.push_back(i * std::sqrt(i + 2));
+  }
+  ShiftedVector<float> vec(std_vec.begin(), std_vec.end());
+  int shift = 2;
+  vec.ShiftStart(shift);
+  for (int i = 0; i < len; ++i) {
+    int j = (i + shift) % len;
+    EXPECT_EQ(vec[i], std_vec[j]);
+  }
+}
+
+TEST(ShiftedVector, ConstIteratorConstructor) {
+  std::vector<float> std_vec;
+  const int len = 5;
+  for (int i = 0; i < len; ++i) {
+    std_vec.push_back(i * std::sqrt(i + 2));
+  }
+  ShiftedVector<float> vec(std_vec.cbegin(), std_vec.cend());
+  int shift = 2;
+  vec.ShiftStart(shift);
+  for (int i = 0; i < len; ++i) {
+    int j = (i + shift) % len;
+    EXPECT_EQ(vec[i], std_vec[j]);
+  }
+}
+
+TEST(ShiftedVector, CreateFromVector) {
+  std::vector<float> std_vec;
+  const int len = 5;
+  for (int i = 0; i < len; ++i) {
+    std_vec.push_back(i * std::sqrt(i + 2));
+  }
+  ShiftedVector<float> vec(std_vec);
+  int shift = len + 1;
+  vec.ShiftStart(shift);
+  for (int i = 0; i < len; ++i) {
+    int j = (i + shift) % len;
+    EXPECT_EQ(vec[i], std_vec[j]);
+  }
+}
+
+TEST(ShiftedVector, Copy) {
+  const int len = 5;
+  ShiftedVector<int> v0(len, 1);
+  ShiftedVector<int> v1(v0);
+  for (int i = 0; i < len; ++i) {
+    EXPECT_EQ(v0[i], v1[i]);
+  }
+}
+
+TEST(ShiftedVector, Move) {
+  const int len = 5;
+  ShiftedVector<int> v0(len, 2);
+  ShiftedVector<int> v1(std::move(v0));
+  for (int i = 0; i < len; ++i) {
+    EXPECT_EQ(v1[i], 2);
+  }
+}
+
+
 }
