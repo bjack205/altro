@@ -17,7 +17,7 @@ class SolverImpl;  // Forward-declare the implementation. Note this is public, b
 
 class ALTROSolver {
  public:
-  ALTROSolver();                                       // Constructor
+  ALTROSolver(int horizon_length);                     // Constructor
   ALTROSolver(const ALTROSolver& other);               // Copy constructor
   ALTROSolver(ALTROSolver&& other);                    // Move constructor
   ALTROSolver& operator=(const ALTROSolver& other);    // Copy assignment
@@ -27,15 +27,6 @@ class ALTROSolver {
   /**********************************************
    * Problem definition
    **********************************************/
-
-  /**
-   * @brief Set the horizon length, or the number of knot points.
-   *
-   * This is usually odd, and equal to `tf / h`, where `h` is the time step.
-   *
-   * @param horizon_length Number of knot points in the problem.
-   */
-  void SetHorizonLength(int horizon_length);
 
   /**
    * @brief Set the number of states and inputs over a range of time steps

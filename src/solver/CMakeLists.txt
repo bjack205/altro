@@ -1,7 +1,15 @@
 add_library(altro_impl STATIC
+  internal_types.hpp
+
   solver.hpp
   solver.cpp
-  internal_types..hpp shifted_vector.cpp shifted_vector.hpp)
+
+  shifted_vector.hpp
+  shifted_vector.cpp
+
+  knotpoint_data.hpp
+  knotpoint_data.cpp
+)
 target_link_libraries(altro_impl
   fmt::fmt
   Eigen3::Eigen

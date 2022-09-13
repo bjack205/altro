@@ -20,4 +20,6 @@ ALTROSolver& ALTROSolver::operator=(const ALTROSolver& other) {
 ALTROSolver& ALTROSolver::operator=(ALTROSolver&& other) = default;
 altro::ALTROSolver::~ALTROSolver() = default;
 
+void ALTROSolver::SetHorizonLength(int horizon_length) {}
+
 }  // namespace altro

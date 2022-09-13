@@ -5,17 +5,23 @@
 
 #pragma once
 
-#include "altro/typedefs.hpp"
+#include "internal_types.hpp"
+#include "shifted_vector.hpp"
 
 namespace altro {
 
+class KnotPointData;
+
 class SolverImpl {
  public:
-  SolverImpl() = default;
+  SolverImpl(int N) : horizon_length_(N), nx_(N+1), nu_(N+1) {}
 
- private:
+  // Problem definition
   int horizon_length_;
+  std::vector<int> nx_;  // number of states
+  std::vector<int> nu_;  // numver of inputs
 
+  ShiftedVector<KnotPointData> data_;
 
 };
 
