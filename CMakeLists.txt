@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD 14)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(FetchContent)
 include(AltroCMakeFunctions)
+include(FindThreads)
 
 #############################################
 # Options
@@ -71,6 +72,10 @@ FetchContent_Declare(eigen
 )
 FetchContent_MakeAvailable(eigen)
 list(POP_BACK CMAKE_MESSAGE_CONTEXT)
+
+SET(AltroCpp_ROOT $ENV{HOME}/.local)
+find_package(Threads)
+find_package(AltroCpp REQUIRED)
 
 #############################################
 # Documentation
