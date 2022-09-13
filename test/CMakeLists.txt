@@ -1,0 +1,9 @@
+add_executable(altro_api
+  altro_api.cpp
+)
+target_link_libraries(altro_api
+  gtest_main
+  altro::altro
+  fmt::fmt
+)
+gtest_discover_tests(altro_api)
