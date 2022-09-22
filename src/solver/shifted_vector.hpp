@@ -32,7 +32,7 @@ class ShiftedVector {
       : len_(vec.size()), start_index_(0), data_(vec.begin(), vec.end()) {}
   ~ShiftedVector() = default;
 
-  // Index shfit
+  // Index shift
   void SetStart(int i) { start_index_ = ((i + len_) % len_); }
   void ShiftStart(int shift = 1) { start_index_ = (start_index_ + shift + len_) % len_; }
   int size() const { return len_; }

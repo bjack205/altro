@@ -10,18 +10,18 @@
 
 namespace altro {
 
-class KnotPointData;
+//class KnotPointData;
 
 class SolverImpl {
  public:
-  SolverImpl(int N) : horizon_length_(N), nx_(N+1), nu_(N+1) {}
+  SolverImpl(int N) : horizon_length_(N), nx_(N+1), nu_(N+1), data_(N+1) {}
 
   // Problem definition
   int horizon_length_;
   std::vector<int> nx_;  // number of states
   std::vector<int> nu_;  // numver of inputs
 
-  ShiftedVector<KnotPointData> data_;
+//  ShiftedVector<KnotPointData> data_;
 
 };
 
