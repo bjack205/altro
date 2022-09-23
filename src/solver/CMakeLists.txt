@@ -11,10 +11,13 @@ add_library(altro_impl STATIC
   knotpoint_data.cpp
 )
 target_link_libraries(altro_impl
-  fmt::fmt
+  PUBLIC
   Eigen3::Eigen
-  altro::altro
+
+  PRIVATE
+  fmt::fmt
   altrocpp::altro
+  altrocpp::interface
 )
 target_include_directories(altro_impl
   PUBLIC

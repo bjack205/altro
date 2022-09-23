@@ -73,9 +73,18 @@ FetchContent_Declare(eigen
 FetchContent_MakeAvailable(eigen)
 list(POP_BACK CMAKE_MESSAGE_CONTEXT)
 
-SET(AltroCpp_ROOT $ENV{HOME}/.local)
-find_package(Threads)
-find_package(AltroCpp REQUIRED)
+#SET(AltroCpp_ROOT $ENV{HOME}/)
+#set(AltroCpp_SOURCE_DIR $ENV{HOME}/Code/altro-cpp)
+#add_subdirectory(${AltroCpp_SOURCE_DIR} altro-cpp)
+#find_package(Threads)
+#find_package(AltroCpp REQUIRED)
+list(APPEND CMAKE_MESSAGE_CONTEXT altrocpp)
+FetchContent_Declare(altrocpp
+  GIT_REPOSITORY https://github.com/bjack205/altro-cpp.git
+  GIT_TAG 6929ac51e29a76b5329273bfff6d1f749250b19e
+)
+FetchContent_MakeAvailable(altrocpp)
+list(POP_BACK CMAKE_MESSAGE_CONTEXT)
 
 #############################################
 # Documentation

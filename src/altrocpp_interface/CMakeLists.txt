@@ -5,6 +5,7 @@ add_library(altrocpp_interface
 target_link_libraries(altrocpp_interface
   PUBLIC
   altrocpp::altro
+  altro::altro2
   Eigen3::Eigen
 
   PRIVATE
