@@ -1,3 +1,5 @@
+add_subdirectory(solver)
+
 add_library(altro2
 
   altro.hpp

@@ -23,11 +23,12 @@ bool SolverImpl::Initialize() {
     VectorXd u(nu_[k]);
     x.setZero();
     u.setZero();
-    KnotPointXXd z(x, u, t);
+    KnotPointXXd z(x, u, t, h_[k]);
     knotpoints.push_back(std::move(z));
     t += h_[k];  // note this results in roundoff error
   }
   trajectory_ = std::make_shared<TrajectoryXXd>(knotpoints);
+  alsolver_.SetTrajectory(trajectory_);
 
   return is_initialized_;
 }
@@ -38,23 +39,27 @@ void SolverImpl::SetCppSolverOptions() {
   cppopts.gradient_tolerance = opts.tol_stationarity;
   cppopts.maximum_penalty = opts.penalty_max;
   cppopts.initial_penalty = opts.penalty_initial;
+  SolverOptions& ilqropts =  alsolver_.GetiLQRSolver().GetOptions();
   switch (opts.verbose) {
     case Verbosity::Silent:
-      cppopts.verbose = LogLevel::kSilent;
+      ilqropts.verbose = LogLevel::kSilent;
       break;
     case Verbosity::Outer:
-      cppopts.verbose = LogLevel::kOuter;
+      ilqropts.verbose = LogLevel::kOuter;
       break;
     case Verbosity::Inner:
-      cppopts.verbose = LogLevel::kInner;
+      ilqropts.verbose = LogLevel::kInner;
       break;
   }
 }
 
 void SolverImpl::Solve() {
-  alsolver_.SetTrajectory(trajectory_);
   SetCppSolverOptions();
   alsolver_.Solve();
+}
+
+a_float SolverImpl::CalcCost() {
+  return alsolver_.GetiLQRSolver().Cost();
 }
 
 }  // namespace altro

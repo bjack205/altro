@@ -7,13 +7,12 @@
 
 #include <memory>
 
+#include "altro/augmented_lagrangian/al_solver.hpp"
 #include "internal_types.hpp"
-#include "shifted_vector.hpp"
 #include "knotpoint_data.hpp"
+#include "shifted_vector.hpp"
 #include "solver_options.hpp"
 #include "solver_stats.hpp"
-
-#include "altro/augmented_lagrangian/al_solver.hpp"
 
 namespace altro {
 
@@ -21,13 +20,23 @@ class KnotPointData;
 
 class SolverImpl {
  public:
-  SolverImpl(int N) : horizon_length_(N), nx_(N+1,0), nu_(N+1,0), h_(N), problem_(N), opts(), alsolver_(N)  {
-    altro::TrajectoryXXd traj(0,0,N);
+  explicit SolverImpl(int N)
+      : horizon_length_(N),
+        nx_(N + 1, 0),
+        nu_(N + 1, 0),
+        h_(N),
+        opts(),
+        stats(),
+        problem_(N),
+        alsolver_(N) {
+    altro::TrajectoryXXd traj(0, 0, N);
     trajectory_ = std::make_shared<altro::TrajectoryXXd>(traj);
   }
 
   bool IsInitialized() const { return is_initialized_; }
+
   bool Initialize();
+  a_float CalcCost();
   void Solve();
 
   // Problem definition
@@ -49,7 +58,6 @@ class SolverImpl {
   void SetCppSolverOptions();
 
   bool is_initialized_ = false;
-
 };
 
-}
+}  // namespace altro

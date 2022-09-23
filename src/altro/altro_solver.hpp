@@ -371,9 +371,10 @@ class ALTROSolver {
 
   SolveStatus GetStatus() const;
   int GetIterations() const;
-  double GetSolveTimeMs() const;
-  double GetPrimalFeasibility() const;
-  double GetFinalObjective() const;
+  a_float GetSolveTimeMs() const;
+  a_float GetPrimalFeasibility() const;
+  a_float GetFinalObjective() const;
+  a_float CalcCost();
 
   /**********************************************
    * Getters
@@ -382,6 +383,7 @@ class ALTROSolver {
   int GetStateDim(int k) const;
   int GetInputDim(int k) const;
   float GetFinalTime() const;
+  float GetTimeStep(int k) const;
   void GetState(a_float* x, int k) const;
   void GetInput(a_float* u, int k) const;
   void GetDualDynamics(a_float* y, int k) const;
@@ -393,15 +395,16 @@ class ALTROSolver {
   void GetFeedbackGain(a_float* K, int k) const;
   void GetFeedforwardGain(a_float* d, int k) const;
 
+  std::unique_ptr<SolverImpl> solver_;
  private:
-  enum class LastIndex { Inclusive, Exclusive };
-  int CheckKnotPointIndices(int k_start, int k_stop, LastIndex last_index) const;
+  enum class LastIndexMode { Inclusive, Exclusive };
+  int CheckKnotPointIndices(int k_start, int k_stop, LastIndexMode last_index) const;
   void AssertInitialized() const;
   void AssertDimensionsAreSet(int k_start, int k_stop, std::string msg = "") const;
   void AssertStateDim(int k, int n) const;
   void AssertInputDim(int k, int m) const;
+  void AssertTimestepsArePositive(std::string msg = "") const;
 
-  std::unique_ptr<SolverImpl> solver_;
   //  SolverImpl *solver_;
 };
 

@@ -28,7 +28,7 @@ altro::ALTROSolver::~ALTROSolver() = default;
 void ALTROSolver::SetDimension(int num_states, int num_inputs, int k_start, int k_stop) {
   if (IsInitialized())
     throw(std::runtime_error("Cannot change the dimension once the solver has been initialized."));
-  k_stop = CheckKnotPointIndices(k_start, k_stop, LastIndex::Exclusive);
+  k_stop = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
   for (int k = k_start; k < k_stop; ++k) {
     solver_->nx_[k] = num_states;
     solver_->nu_[k] = num_inputs;
@@ -36,7 +36,7 @@ void ALTROSolver::SetDimension(int num_states, int num_inputs, int k_start, int 
 }
 
 void ALTROSolver::SetTimeStep(float h, int k_start, int k_stop) {
-  k_stop = CheckKnotPointIndices(k_start, k_stop, LastIndex::Exclusive);
+  k_stop = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Exclusive);
   for (int k = k_start; k < k_stop; ++k) {
     solver_->h_[k] = h;
   }
@@ -46,7 +46,7 @@ void ALTROSolver::SetExplicitDynamics(ExplicitDynamicsFunction dynamics_function
                                       ExplicitDynamicsJacobian dynamics_jacobian, int k_start,
                                       int k_stop) {
   AssertDimensionsAreSet(k_stop, k_stop, "Cannot set the dynamics");
-  k_stop = CheckKnotPointIndices(k_start, k_stop, LastIndex::Exclusive);
+  k_stop = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Exclusive);
   for (int k = k_start; k < k_stop; ++k) {
     int n = this->GetStateDim(k);
     int m = this->GetInputDim(k);
@@ -61,8 +61,8 @@ void ALTROSolver::SetQuadraticCost(const a_float *Q, const a_float *R, const a_f
                                    int k_stop) {
   using MatrixXd = Eigen::Matrix<a_float, Eigen::Dynamic, Eigen::Dynamic>;
   using VectorXd = Eigen::Vector<a_float, Eigen::Dynamic>;
-  k_stop = CheckKnotPointIndices(k_start, k_stop, LastIndex::Inclusive);
-  AssertDimensionsAreSet(k_stop, k_stop, "Cannot set the cost function");
+  k_stop = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
+  AssertDimensionsAreSet(k_start, k_stop, "Cannot set the cost function");
 
   for (int k = k_start; k < k_stop; ++k) {
     int n = this->GetStateDim(k);
@@ -85,8 +85,8 @@ void ALTROSolver::SetLQRCost(const a_float *Q_diag, const a_float *R_diag, const
                              const a_float *u_ref, int k_start, int k_stop) {
   using MatrixXd = Eigen::Matrix<a_float, Eigen::Dynamic, Eigen::Dynamic>;
   using VectorXd = Eigen::Vector<a_float, Eigen::Dynamic>;
-  k_stop = CheckKnotPointIndices(k_start, k_stop, LastIndex::Inclusive);
-  AssertDimensionsAreSet(k_stop, k_stop, "Cannot set the cost function");
+  k_stop = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
+  AssertDimensionsAreSet(k_start, k_stop, "Cannot set the cost function");
 
   for (int k = k_start; k < k_stop; ++k) {
     int n = this->GetStateDim(k);
@@ -117,11 +117,15 @@ void ALTROSolver::SetInitialState(const double *x0, int n) {
   solver_->problem_.SetInitialState(x0_vec);
 }
 
-void ALTROSolver::Initialize() { solver_->Initialize(); }
+void ALTROSolver::Initialize() {
+  AssertDimensionsAreSet(0, GetHorizonLength(), "Cannot initialize solver");
+  AssertTimestepsArePositive("Cannot initialize solver");
+  solver_->Initialize();
+}
 
 void ALTROSolver::SetState(const a_float *x, int n, int k_start, int k_stop) {
   AssertInitialized();
-  k_stop = CheckKnotPointIndices(k_start, k_stop, LastIndex::Inclusive);
+  k_stop = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
   for (int k = k_start; k < k_stop; ++k) {
     AssertStateDim(k, n);
     solver_->trajectory_->State(k) = Eigen::Map<const Eigen::VectorXd>(x, n);
@@ -130,7 +134,7 @@ void ALTROSolver::SetState(const a_float *x, int n, int k_start, int k_stop) {
 
 void ALTROSolver::SetInput(const a_float *u, int m, int k_start, int k_stop) {
   AssertInitialized();
-  k_stop = CheckKnotPointIndices(k_start, k_stop, LastIndex::Exclusive);
+  k_stop = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Exclusive);
   for (int k = k_start; k < k_stop; ++k) {
     AssertInputDim(k, m);
     solver_->trajectory_->Control(k) = Eigen::Map<const Eigen::VectorXd>(u, m);
@@ -154,11 +158,33 @@ int ALTROSolver::GetStateDim(int k) const { return solver_->nx_[k]; }
 
 int ALTROSolver::GetInputDim(int k) const { return solver_->nu_[k]; }
 
+float ALTROSolver::GetTimeStep(int k) const { return solver_->h_[k]; }
+
 bool ALTROSolver::IsInitialized() const { return solver_->IsInitialized(); }
 
 AltroOptions &ALTROSolver::GetOptions() { return solver_->opts; }
 
 const AltroOptions &ALTROSolver::GetOptions() const { return solver_->opts; }
+
+a_float ALTROSolver::CalcCost() { return solver_->CalcCost(); }
+
+int ALTROSolver::GetIterations() const { return solver_->stats.iterations; }
+
+a_float ALTROSolver::GetSolveTimeMs() const { return solver_->stats.solve_time.count(); }
+
+a_float ALTROSolver::GetPrimalFeasibility() const { return solver_->stats.primal_feasibility; };
+
+a_float ALTROSolver::GetFinalObjective() const { return solver_->stats.objective_value; }
+
+void ALTROSolver::GetState(a_float *x, int k) const {
+  int n = GetStateDim(k);
+  Eigen::Map<Eigen::VectorXd>(x, n) = solver_->trajectory_->State(k);
+}
+
+void ALTROSolver::GetInput(a_float *u, int k) const {
+  int m = GetInputDim(k);
+  Eigen::Map<Eigen::VectorXd>(u, m) = solver_->trajectory_->Control(k);
+}
 
 /***************************************************************************************************
  * Private methods
@@ -171,7 +197,7 @@ void ALTROSolver::AssertInitialized() const {
 }
 
 void ALTROSolver::AssertDimensionsAreSet(int k_start, int k_stop, std::string msg) const {
-  for (int k = k_stop; k < k_stop; ++k) {
+  for (int k = k_start; k < k_stop; ++k) {
     int n = GetStateDim(k);
     int m = GetInputDim(k);
     if (n <= 0 || m <= 0) {
@@ -181,20 +207,20 @@ void ALTROSolver::AssertDimensionsAreSet(int k_start, int k_stop, std::string ms
   }
 }
 
-int ALTROSolver::CheckKnotPointIndices(int k_start, int k_stop, LastIndex last_index) const {
+int ALTROSolver::CheckKnotPointIndices(int k_start, int k_stop, LastIndexMode last_index) const {
   // Get upper index range
   int terminal_index;
   switch (last_index) {
-    case LastIndex::Inclusive:
+    case LastIndexMode::Inclusive:
       terminal_index = GetHorizonLength();
       break;
-    case LastIndex::Exclusive:
+    case LastIndexMode::Exclusive:
       terminal_index = GetHorizonLength() - 1;
       break;
   }
 
   // Automatic full range selection
-  if (k_start == 0 && k_stop == -1) {
+  if (k_start == 0 && k_stop == LastIndex) {
     k_start = 0;
     k_stop = terminal_index + 1;
   }
@@ -223,19 +249,6 @@ int ALTROSolver::CheckKnotPointIndices(int k_start, int k_stop, LastIndex last_i
   return k_stop;
 }
 
-int ALTROSolver::GetIterations() const { return solver_->stats.iterations; }
-
-double ALTROSolver::GetSolveTimeMs() const { return solver_->stats.solve_time.count(); }
-
-double ALTROSolver::GetPrimalFeasibility() const { return solver_->stats.primal_feasibility; };
-
-double ALTROSolver::GetFinalObjective() const { return solver_->stats.objective_value; }
-
-void ALTROSolver::GetState(a_float *x, int k) const {
-  int n = GetStateDim(k);
-  Eigen::Map<Eigen::VectorXd>(x, n) = solver_->trajectory_->State(k);
-}
-
 void ALTROSolver::AssertStateDim(int k, int n) const {
   int state_dim = GetStateDim(k);
   if (state_dim != n) {
@@ -251,4 +264,15 @@ void ALTROSolver::AssertInputDim(int k, int m) const {
         fmt::format("Input dimension mismatch. Got {}, expected {}.", m, input_dim)));
   }
 }
+
+void ALTROSolver::AssertTimestepsArePositive(std::string msg) const {
+  for (int k = 0; k < GetHorizonLength(); ++k) {
+    float h = GetTimeStep(k);
+    if (h <= 0.0) {
+      throw(
+          std::runtime_error(fmt::format("{}. Timestep is nonpositive at timestep {}.\n", msg, k)));
+    }
+  }
+}
+
 }  // namespace altro

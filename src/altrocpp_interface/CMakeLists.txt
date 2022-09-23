@@ -18,4 +18,4 @@ target_include_directories(altrocpp_interface
 
 add_library(altrocpp::interface ALIAS altrocpp_interface)
 
-#add_subdirectory(test)
+add_subdirectory(test)
