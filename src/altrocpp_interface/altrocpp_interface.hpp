@@ -21,7 +21,9 @@ class GeneralDiscreteDynamics : public problem::DiscreteDynamics {
                           ExplicitDynamicsJacobian dynamics_jacobian);
 
   int StateDimension() const override { return num_states_; }
+
   int ControlDimension() const override { return num_inputs_; }
+
   int OutputDimension() const override { return num_states_; }
 
   void Evaluate(const VectorXdRef& x, const VectorXdRef& u, float t, float h,
@@ -29,6 +31,9 @@ class GeneralDiscreteDynamics : public problem::DiscreteDynamics {
 
   void Jacobian(const VectorXdRef& x, const VectorXdRef& u, float t, float h,
                 Eigen::Ref<MatrixXd> jac) override;
+
+  void Hessian(const VectorXdRef& x, const VectorXdRef& u, float t, float h, const VectorXdRef& b,
+                       Eigen::Ref<MatrixXd> hess) override;
 
   bool HasHessian() const override { return false; }
 
@@ -42,9 +47,10 @@ class GeneralDiscreteDynamics : public problem::DiscreteDynamics {
 class GeneralCostFunction : public problem::CostFunction {
  public:
   GeneralCostFunction(int n, int m, altro::CostFunction cost_function, CostGradient cost_gradient,
-               CostHessian cost_hessian);
+                      CostHessian cost_hessian);
 
   int StateDimension() const override { return num_states_; }
+
   int ControlDimension() const override { return num_inputs_; }
 
   double Evaluate(const VectorXdRef& x, const VectorXdRef& u) override;
@@ -53,7 +59,7 @@ class GeneralCostFunction : public problem::CostFunction {
                 Eigen::Ref<VectorXd> du) override;
 
   void Hessian(const VectorXdRef& x, const VectorXdRef& u, Eigen::Ref<MatrixXd> dxdx,
-                Eigen::Ref<MatrixXd> dudx, Eigen::Ref<MatrixXd> dudu) override;
+               Eigen::Ref<MatrixXd> dudx, Eigen::Ref<MatrixXd> dudu) override;
 
  private:
   int num_states_;
@@ -93,7 +99,9 @@ class QuadraticCost : public problem::CostFunction {
   }
 
   int StateDimension() const override { return n_; }
+
   int ControlDimension() const override { return m_; }
+
   double Evaluate(const VectorXdRef& x, const VectorXdRef& u) override;
   void Gradient(const VectorXdRef& x, const VectorXdRef& u, Eigen::Ref<VectorXd> dx,
                 Eigen::Ref<VectorXd> du) override;
@@ -101,13 +109,21 @@ class QuadraticCost : public problem::CostFunction {
                Eigen::Ref<MatrixXd> dxdu, Eigen::Ref<MatrixXd> dudu) override;
 
   const MatrixXd& GetQ() const { return Q_; }
+
   const MatrixXd& GetR() const { return R_; }
+
   const MatrixXd& GetH() const { return H_; }
+
   const VectorXd& Getq() const { return q_; }
+
   const VectorXd& Getr() const { return r_; }
+
   double GetConstant() const { return c_; }
+
   const Eigen::LDLT<MatrixXd>& GetQfact() const { return Qfact_; }
+
   const Eigen::LLT<MatrixXd>& GetRfact() const { return Rfact_; }
+
   bool IsBlockDiagonal() const { return isblockdiag_; }
 
  private:

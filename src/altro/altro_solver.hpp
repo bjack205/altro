@@ -6,6 +6,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 
 #include "solver_options.hpp"
 #include "typedefs.hpp"
@@ -42,6 +43,14 @@ class ALTROSolver {
    *                          If specified, sets all of the knot points in range `[k_start, k_stop)`
    */
   void SetDimension(int num_states, int num_inputs, int k_start, int k_stop = 0);
+
+  /**
+   * @brief Set the time step between knot point index `k` and `k + 1`.
+   * @param h Time step
+   * @param k_start Knot point index
+   * @param k_stop (optional) Terminal knot point index (non-inclusive).
+   */
+  void SetTimeStep(float h, int k_start = 0, int k_stop = 0);
 
   /**
    * @brief Specify the dynamics function and dynamics Jacobian at a knot point (or range or knot
@@ -272,7 +281,7 @@ class ALTROSolver {
    *
    * @return
    */
-  bool InInitialized() const;
+  bool IsInitialized() const;
 
   /**********************************************
    * Initialization
@@ -280,15 +289,24 @@ class ALTROSolver {
   void Initialize();
 
   /**
+   * @brief Set the initial state
+   *
+   * @pre The first dimension must be specified with ::SetDimension
+   * @param x0 Initial state
+   */
+  void SetInitialState(const double* x0, int n);
+
+  /**
    * @brief Set the state at a time step (or range of time steps). Used as the initial guess for the
    * trajectory.
    *
    * @pre Solver must be initialized.
    * @param x State vector
+   * @param n Length of state vector
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal knot point index (non-inclusive).
    */
-  void SetState(const a_float* x, int k_start, int k_stop = 0);
+  void SetState(const a_float* x, int n, int k_start, int k_stop = 0);
 
   /**
    * @brief Set the input at a time step (or range of time steps). Used as the initial guess for the
@@ -296,10 +314,11 @@ class ALTROSolver {
    *
    * @pre Solver must be initialized.
    * @param u Input vector
+   * @param m Length of input vector
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal knot point index (non-inclusive).
    */
-  void SetInput(const a_float* u, int k_start, int k_stop = 0);
+  void SetInput(const a_float* u, int m, int k_start, int k_stop = 0);
 
   /**
    * @brief Set the dual variable associated with dynamics constraint at a time step (or range of
@@ -359,18 +378,27 @@ class ALTROSolver {
   /**********************************************
    * Getters
    **********************************************/
-  void GetFeedbackGain(a_float* K, int k);
-  void GetFeedforwardGain(a_float* d, int k);
-  void GetState(a_float* x, int k);
-  void GetInput(a_float* u, int k);
-  void GetDualDynamics(a_float* y, int k);
-  void GetDualGeneral(a_float* z, int ConstraintIndex);
-  void GetDualStateUpperBound(a_float* b_x_upper, int ConstraintIndex);
-  void GetDualStateLowerBound(a_float* b_x_lower, int ConstraintIndex);
-  void GetDualInputUpperBound(a_float* b_u_upper, int ConstraintIndex);
-  void GetDualInputLowerBound(a_float* b_u_lower, int ConstraintIndex);
+  int GetHorizonLength() const;
+  int GetStateDim(int k) const;
+  int GetInputDim(int k) const;
+  float GetFinalTime() const;
+  void GetState(a_float* x, int k) const;
+  void GetInput(a_float* u, int k) const;
+  void GetDualDynamics(a_float* y, int k) const;
+  void GetDualGeneral(a_float* z, int ConstraintIndex) const;
+  void GetDualStateUpperBound(a_float* b_x_upper, int ConstraintIndex) const;
+  void GetDualStateLowerBound(a_float* b_x_lower, int ConstraintIndex) const;
+  void GetDualInputUpperBound(a_float* b_u_upper, int ConstraintIndex) const;
+  void GetDualInputLowerBound(a_float* b_u_lower, int ConstraintIndex) const;
+  void GetFeedbackGain(a_float* K, int k) const;
+  void GetFeedforwardGain(a_float* d, int k) const;
 
  private:
+  enum class LastIndex { Inclusive, Exclusive };
+  int CheckKnotPointIndices(int k_start, int k_stop, LastIndex last_index) const;
+  void AssertInitialized() const;
+  void AssertDimensionsAreSet(int k_start, int k_stop, std::string msg = "") const;
+
   std::unique_ptr<SolverImpl> solver_;
   //  SolverImpl *solver_;
 };

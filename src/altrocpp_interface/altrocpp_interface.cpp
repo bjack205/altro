@@ -8,6 +8,34 @@
 namespace altro {
 namespace cpp_interface {
 
+GeneralDiscreteDynamics::GeneralDiscreteDynamics(int n, int m,
+                                                 ExplicitDynamicsFunction dynamics_function,
+                                                 ExplicitDynamicsJacobian dynamics_jacobian)
+    : num_states_(n),
+      num_inputs_(m),
+      dynamics_function_(dynamics_function),
+      dynamics_jacobian_(dynamics_jacobian) {}
+
+void GeneralDiscreteDynamics::Evaluate(const VectorXdRef& x, const VectorXdRef& u, float t, float h,
+                                       Eigen::Ref<VectorXd> xnext) {
+  dynamics_function_(xnext.data(), x.data(), u.data(), GetStep());
+}
+
+void GeneralDiscreteDynamics::Jacobian(const VectorXdRef& x, const VectorXdRef& u, float t, float h,
+                                       Eigen::Ref<MatrixXd> jac) {
+  dynamics_jacobian_(jac.data(), x.data(), u.data(), GetStep());
+}
+
+void GeneralDiscreteDynamics::Hessian(const VectorXdRef& x, const VectorXdRef& u, float t, float h,
+                                      const VectorXdRef& b, Eigen::Ref<MatrixXd> hess) {
+  (void)x;
+  (void)u;
+  (void)t;
+  (void)h;
+  (void)b;
+  (void)hess;
+}
+
 double QuadraticCost::Evaluate(const VectorXdRef& x, const VectorXdRef& u) {
   return 0.5 * x.dot(Q_ * x) + x.dot(H_ * u) + 0.5 * u.dot(R_ * u) + q_.dot(x) + r_.dot(u) + c_;
 }
@@ -60,24 +88,6 @@ void QuadraticCost::Validate() {
     }
   }
   ALTRO_ASSERT(ispossemidef, "Q must be positive semi-definite");
-}
-
-GeneralDiscreteDynamics::GeneralDiscreteDynamics(int n, int m,
-                                                 ExplicitDynamicsFunction dynamics_function,
-                                                 ExplicitDynamicsJacobian dynamics_jacobian)
-    : num_states_(n),
-      num_inputs_(m),
-      dynamics_function_(dynamics_function),
-      dynamics_jacobian_(dynamics_jacobian) {}
-
-void GeneralDiscreteDynamics::Evaluate(const VectorXdRef& x, const VectorXdRef& u, float t, float h,
-                                       Eigen::Ref<VectorXd> xnext) {
-  dynamics_function_(xnext.data(), x.data(), u.data(), GetStep());
-}
-
-void GeneralDiscreteDynamics::Jacobian(const VectorXdRef& x, const VectorXdRef& u, float t, float h,
-                                       Eigen::Ref<MatrixXd> jac) {
-  dynamics_jacobian_(jac.data(), x.data(), u.data(), GetStep());
 }
 
 GeneralCostFunction::GeneralCostFunction(int n, int m, altro::CostFunction cost_function,
