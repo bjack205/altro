@@ -117,6 +117,48 @@ void ALTROSolver::SetInitialState(const double *x0, int n) {
   solver_->problem_.SetInitialState(x0_vec);
 }
 
+std::vector<ConstraintIndex> ALTROSolver::SetConstraint(ConstraintFunction constraint_function,
+                                                        ConstraintJacobian constraint_jacobian,
+                                                        int dim, ConstraintType constraint_type,
+                                                        std::string label, int k_start,
+                                                        int k_stop) {
+  k_stop = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
+  AssertDimensionsAreSet(k_start, k_stop, "Cannot set constraint");
+  int num_indices = k_stop - k_start;
+  std::vector<ConstraintIndex> con_indices;
+  con_indices.reserve(num_indices);
+
+  for (int k = k_start; k < k_stop; ++k) {
+    int n = GetStateDim(k);
+    int m = GetInputDim(k);
+    std::string label_k = label;
+    if (num_indices != 1) {
+      label_k += "_" + std::to_string(k);
+    }
+
+    // Add constraint to problem
+    int ncon;
+    if (constraint_type == ConstraintType::EQUALITY) {
+      cpp_interface::EqualityConstraint eq(n, m, dim, constraint_function, constraint_jacobian,
+                                           label_k);
+      solver_->problem_.SetConstraint(
+          std::make_shared<cpp_interface::EqualityConstraint>(std::move(eq)), k);
+      ncon = solver_->problem_.GetNumEqualityConstraints(k);
+    } else if (constraint_type == ConstraintType::INEQUALITY) {
+      cpp_interface::InequalityConstraint ineq(n, m, dim, constraint_function, constraint_jacobian,
+                                               label_k);
+      solver_->problem_.SetConstraint(
+          std::make_shared<cpp_interface::InequalityConstraint>(std::move(ineq)), k);
+      ncon = solver_->problem_.GetNumInequalityConstraints(k);
+    }
+
+    // Set index
+    ConstraintIndex idx(k, ncon);
+    con_indices.emplace_back(idx);
+  }
+  return con_indices;
+}
+
 void ALTROSolver::Initialize() {
   AssertDimensionsAreSet(0, GetHorizonLength(), "Cannot initialize solver");
   AssertTimestepsArePositive("Cannot initialize solver");

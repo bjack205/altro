@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "altro/solver/solver_options.hpp"
 #include "altro/solver/typedefs.hpp"
@@ -220,14 +221,16 @@ class ALTROSolver {
    *    `void(a_float* jac, const a_float* x, const a_float* u)`.
    * @param dim Length of the constraint
    * @param constraint_type One of the valid constraint types.
+   * @param label A short descriptive label for the constraint
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal knot point index (non-inclusive).
    * @return ConstraintIndex An opaque class that uniquely represents the constraint. Should be
    * saved if information about the constraint needs to be queried later.
    */
-  ConstraintIndex SetConstraint(ConstraintFunction constraint_function,
-                                ConstraintJacobian constraint_jacobian, int dim,
-                                ConstraintType constraint_type, int k_start, int k_stop = 0);
+  std::vector<ConstraintIndex> SetConstraint(ConstraintFunction constraint_function,
+                                             ConstraintJacobian constraint_jacobian, int dim,
+                                             ConstraintType constraint_type, std::string label,
+                                             int k_start, int k_stop = 0);
 
   /**
    * @brief Set the upper bound on the states at an index (or a range of knot point indices)
@@ -396,6 +399,7 @@ class ALTROSolver {
   void GetFeedforwardGain(a_float* d, int k) const;
 
   std::unique_ptr<SolverImpl> solver_;
+
  private:
   enum class LastIndexMode { Inclusive, Exclusive };
   int CheckKnotPointIndices(int k_start, int k_stop, LastIndexMode last_index) const;

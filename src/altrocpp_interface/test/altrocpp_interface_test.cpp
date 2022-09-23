@@ -116,6 +116,27 @@ TEST(AltroCppInterfaceTest, DoubleIntegrator) {
   solver.SetInitialState(x0.data(), x0.size());
   //  prob.SetInitialState(x0);
 
+  // Constraints
+  auto goalcon = [n, xf](double *c, const double *x, const double *u) {
+    (void)u;
+    for (int i = 0; i < n; ++i) {
+      c[i] = x[i] - xf[i];
+    }
+  };
+  auto goaljac = [n, m](double *jac, const double *x, const double *u) {
+    (void)x;
+    (void)u;
+    Eigen::Map<MatrixXd> J(jac, n, n + m);
+    for (int i = 0; i < n; ++i) {
+      J(i, i) = 1.0;
+    }
+  };
+//  cpp_interface::EqualityConstraint goal_constraint(n, m, n, goalcon, goaljac, "Goal Constraint");
+//  prob.SetConstraint(std::make_shared<cpp_interface::EqualityConstraint>(goal_constraint),
+//                     num_segments);
+  solver.SetConstraint(goalcon, goaljac, n, ConstraintType::EQUALITY, "Goal Constraint",
+                       num_segments);
+
   // Initial Trajectory
   solver.Initialize();
   //  using KnotPointXXd = KnotPoint<Eigen::Dynamic, Eigen::Dynamic>;
@@ -143,24 +164,6 @@ TEST(AltroCppInterfaceTest, DoubleIntegrator) {
   //  }
   //  Z->SetUniformStep(h);
 
-  // Constraints
-  auto goalcon = [n, xf](double *c, const double *x, const double *u) {
-    (void)u;
-    for (int i = 0; i < n; ++i) {
-      c[i] = x[i] - xf[i];
-    }
-  };
-  auto goaljac = [n, m](double *jac, const double *x, const double *u) {
-    (void)x;
-    (void)u;
-    Eigen::Map<MatrixXd> J(jac, n, n + m);
-    for (int i = 0; i < n; ++i) {
-      J(i, i) = 1.0;
-    }
-  };
-  cpp_interface::EqualityConstraint goal_constraint(n, m, n, goalcon, goaljac, "Goal Constraint");
-  prob.SetConstraint(std::make_shared<cpp_interface::EqualityConstraint>(goal_constraint),
-                     num_segments);
   //  prob.SetConstraint(std::)
   //  num_segments);
   //  prob.SetConstraint(std::make_shared<examples::GoalConstraint>(xf), num_segments);
@@ -191,4 +194,10 @@ TEST(AltroCppInterfaceTest, DoubleIntegrator) {
 
   EXPECT_LT((x_N - xf).norm(), (x_0 - xf).norm());
   EXPECT_LT((x_N - xf).norm(), 1e-4);
+
+  solver.GetState(x_0.data(), 0);
+  solver.GetState(x_N.data(), num_segments);
+  double dist_to_goal = (x_N - xf).norm();
+  fmt::print("Distance to Goal: {}\n", dist_to_goal);
+  EXPECT_LT(dist_to_goal, (x_0 - xf).norm());
 }
