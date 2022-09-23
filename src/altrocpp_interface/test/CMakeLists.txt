@@ -8,5 +8,6 @@ target_link_libraries(altrocpp_interface_test
   Eigen3::Eigen
   altrocpp::interface
   cost_function_examples
+  constraint_examples
   altro_impl
 )

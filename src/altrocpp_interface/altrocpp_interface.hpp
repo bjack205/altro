@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <string>
+
 #include "Eigen/Dense"
 #include "altro/problem/problem.hpp"
 #include "altro/solver/typedefs.hpp"
@@ -33,7 +35,7 @@ class GeneralDiscreteDynamics : public problem::DiscreteDynamics {
                 Eigen::Ref<MatrixXd> jac) override;
 
   void Hessian(const VectorXdRef& x, const VectorXdRef& u, float t, float h, const VectorXdRef& b,
-                       Eigen::Ref<MatrixXd> hess) override;
+               Eigen::Ref<MatrixXd> hess) override;
 
   bool HasHessian() const override { return false; }
 
@@ -144,6 +146,40 @@ class QuadraticCost : public problem::CostFunction {
   Eigen::LDLT<MatrixXd> Qfact_;
   Eigen::LLT<MatrixXd> Rfact_;
 };
+
+template <class Cone>
+class GeneralConstraint : public constraints::Constraint<Cone> {
+ public:
+  explicit GeneralConstraint(int n, int m, int p, ConstraintFunction con, ConstraintJacobian jac,
+                             std::string label = "")
+      : con_(con), jac_(jac), state_dim_(n), input_dim_(m), constraint_dim_(p), label_(label) {}
+
+  std::string GetLabel() const override { return label_; }
+  int StateDimension() const override { return state_dim_; }
+  int ControlDimension() const override { return input_dim_; }
+  int OutputDimension() const override { return constraint_dim_; }
+
+  void Evaluate(const VectorXdRef& x, const VectorXdRef& u, Eigen::Ref<VectorXd> c) override {
+    con_(c.data(), x.data(), u.data());
+  }
+
+  void Jacobian(const VectorXdRef& x, const VectorXdRef& u, Eigen::Ref<MatrixXd> jac) override {
+    jac_(jac.data(), x.data(), u.data());
+  }
+
+  void SetLabel(std::string label) { label_ = std::move(label); }
+
+ private:
+  ConstraintFunction con_;
+  ConstraintJacobian jac_;
+  int state_dim_;
+  int input_dim_;
+  int constraint_dim_;
+  std::string label_;
+};
+
+using EqualityConstraint = GeneralConstraint<constraints::Equality>;
+using InequalityConstraint = GeneralConstraint<constraints::Inequality>;
 
 }  // namespace cpp_interface
 }  // namespace altro

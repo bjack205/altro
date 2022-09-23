@@ -4,17 +4,18 @@
 //
 
 #include "altrocpp_interface/altrocpp_interface.hpp"
-#include "augmented_lagrangian/al_solver.hpp"
-#include "altro/problem/problem.hpp"
-#include "altro/common/trajectory.hpp"
 
 #include "Eigen/Dense"
 #include "altro/altro_solver.hpp"
-#include "altro/utils/formatting.hpp"
+#include "altro/common/trajectory.hpp"
+#include "altro/problem/problem.hpp"
 #include "altro/solver/solver.hpp"
-#include "gtest/gtest.h"
-#include "fmt/core.h"
+#include "altro/utils/formatting.hpp"
+#include "augmented_lagrangian/al_solver.hpp"
+#include "examples/basic_constraints.hpp"
 #include "fmt/chrono.h"
+#include "fmt/core.h"
+#include "gtest/gtest.h"
 
 using namespace altro;
 
@@ -76,19 +77,19 @@ TEST(AltroCppInterfaceTest, DoubleIntegrator) {
   solver.SetTimeStep(h, 0, LastIndex);
 
   // Set up the problem
-  problem::Problem& prob = solver.solver_->problem_;
+  problem::Problem &prob = solver.solver_->problem_;
   fmt::print("N = {}\n", prob.NumSegments());
 
   // Dynamics
   solver.SetExplicitDynamics(dyn, jac, 0, LastIndex);
-//  std::shared_ptr<cpp_interface::GeneralDiscreteDynamics> model_ptr =
-//      std::make_shared<cpp_interface::GeneralDiscreteDynamics>(model);
-//  for (int k = 0; k < num_segments; ++k) {
-//    prob.SetDynamics(model_ptr, k);
-//  }
+  //  std::shared_ptr<cpp_interface::GeneralDiscreteDynamics> model_ptr =
+  //      std::make_shared<cpp_interface::GeneralDiscreteDynamics>(model);
+  //  for (int k = 0; k < num_segments; ++k) {
+  //    prob.SetDynamics(model_ptr, k);
+  //  }
 
   // Cost Function
-//  using altro::examples::QuadraticCost;
+  //  using altro::examples::QuadraticCost;
   using cpp_interface::QuadraticCost;
   Eigen::MatrixXd Qf = Eigen::VectorXd::Constant(n, 1.0).asDiagonal();
   Eigen::MatrixXd Q = Eigen::VectorXd::Constant(n, 1.0).asDiagonal();
@@ -102,45 +103,67 @@ TEST(AltroCppInterfaceTest, DoubleIntegrator) {
   x0 << 1.0, 1.0, 0.0, 0.0;
   solver.SetLQRCost(Q_diag.data(), R_diag.data(), xf.data(), uf.data(), 0, num_segments);
   solver.SetLQRCost(Qf_diag.data(), R_diag.data(), xf.data(), uf.data(), num_segments);
-//  std::shared_ptr<QuadraticCost> stage_cost;
-//  std::shared_ptr<QuadraticCost> term_cost;
-//  stage_cost = std::make_shared<QuadraticCost>(QuadraticCost::LQRCost(Q, R, xf, uf));
-//  term_cost = std::make_shared<QuadraticCost>(QuadraticCost::LQRCost(Qf, R, xf, uf, true));
-//  for (int k = 0; k < num_segments; ++kSilent) {
-//    prob.SetCostFunction(stage_cost, k);
-//  }
-//  prob.SetCostFunction(term_cost, num_segments);
+  //  std::shared_ptr<QuadraticCost> stage_cost;
+  //  std::shared_ptr<QuadraticCost> term_cost;
+  //  stage_cost = std::make_shared<QuadraticCost>(QuadraticCost::LQRCost(Q, R, xf, uf));
+  //  term_cost = std::make_shared<QuadraticCost>(QuadraticCost::LQRCost(Qf, R, xf, uf, true));
+  //  for (int k = 0; k < num_segments; ++kSilent) {
+  //    prob.SetCostFunction(stage_cost, k);
+  //  }
+  //  prob.SetCostFunction(term_cost, num_segments);
 
   // Initial state
   solver.SetInitialState(x0.data(), x0.size());
-//  prob.SetInitialState(x0);
+  //  prob.SetInitialState(x0);
 
   // Initial Trajectory
   solver.Initialize();
-//  using KnotPointXXd = KnotPoint<Eigen::Dynamic, Eigen::Dynamic>;
-//  std::vector<KnotPointXXd> knotpoints;
-//  float t = 0.0;
-//  for (int k = 0; k < num_segments + 1; ++k) {
-//    VectorXd x(n);
-//    VectorXd u(m);
-//    x.setZero();
-//    u.setZero();
-//    KnotPointXXd z(x, u, t);
-//    knotpoints.push_back(std::move(z));
-//    t += h;  // note this results in roundoff error
-//  }
-//  std::shared_ptr<TrajectoryXXd> Z = std::make_shared<TrajectoryXXd>(knotpoints);
-//  std::shared_ptr<TrajectoryXXd> Z = solver.solver_->trajectory_;
+  //  using KnotPointXXd = KnotPoint<Eigen::Dynamic, Eigen::Dynamic>;
+  //  std::vector<KnotPointXXd> knotpoints;
+  //  float t = 0.0;
+  //  for (int k = 0; k < num_segments + 1; ++k) {
+  //    VectorXd x(n);
+  //    VectorXd u(m);
+  //    x.setZero();
+  //    u.setZero();
+  //    KnotPointXXd z(x, u, t);
+  //    knotpoints.push_back(std::move(z));
+  //    t += h;  // note this results in roundoff error
+  //  }
+  //  std::shared_ptr<TrajectoryXXd> Z = std::make_shared<TrajectoryXXd>(knotpoints);
+  //  std::shared_ptr<TrajectoryXXd> Z = solver.solver_->trajectory_;
 
-//  std::shared_ptr<TrajectoryXXd> Z = std::make_shared<TrajectoryXXd>(n, m, num_segments);
-//  Z->SetUniformStep(h);
-//  solver.solver_->trajectory_ = Z;
+  //  std::shared_ptr<TrajectoryXXd> Z = std::make_shared<TrajectoryXXd>(n, m, num_segments);
+  //  Z->SetUniformStep(h);
+  //  solver.solver_->trajectory_ = Z;
   solver.SetInput(uf.data(), uf.size(), 0, num_segments);
   std::shared_ptr<TrajectoryXXd> Z = solver.solver_->trajectory_;
-//  for (int k = 0; k < num_segments; ++k) {
-//    Z->Control(k) = uf;
-//  }
-//  Z->SetUniformStep(h);
+  //  for (int k = 0; k < num_segments; ++k) {
+  //    Z->Control(k) = uf;
+  //  }
+  //  Z->SetUniformStep(h);
+
+  // Constraints
+  auto goalcon = [n, xf](double *c, const double *x, const double *u) {
+    (void)u;
+    for (int i = 0; i < n; ++i) {
+      c[i] = x[i] - xf[i];
+    }
+  };
+  auto goaljac = [n, m](double *jac, const double *x, const double *u) {
+    (void)x;
+    (void)u;
+    Eigen::Map<MatrixXd> J(jac, n, n + m);
+    for (int i = 0; i < n; ++i) {
+      J(i, i) = 1.0;
+    }
+  };
+  cpp_interface::EqualityConstraint goal_constraint(n, m, n, goalcon, goaljac, "Goal Constraint");
+  prob.SetConstraint(std::make_shared<cpp_interface::EqualityConstraint>(goal_constraint),
+                     num_segments);
+  //  prob.SetConstraint(std::)
+  //  num_segments);
+  //  prob.SetConstraint(std::make_shared<examples::GoalConstraint>(xf), num_segments);
 
   // Build solver
   augmented_lagrangian::AugmentedLagrangianiLQR<Eigen::Dynamic, Eigen::Dynamic> alsolver(prob);
@@ -167,4 +190,5 @@ TEST(AltroCppInterfaceTest, DoubleIntegrator) {
   fmt::print("xf: \n[{}]\n", x_N.transpose().eval());
 
   EXPECT_LT((x_N - xf).norm(), (x_0 - xf).norm());
+  EXPECT_LT((x_N - xf).norm(), 1e-4);
 }
