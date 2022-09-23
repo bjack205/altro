@@ -6,7 +6,7 @@
 #pragma once
 
 #include "Eigen/Dense"
-#include "altro/typedefs.hpp"
+#include "typedefs.hpp"
 
 namespace altro {
 

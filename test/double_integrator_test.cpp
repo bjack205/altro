@@ -86,11 +86,17 @@ TEST(DoubleIntegrator, SolverInit) {
   solver.SetInitialState(x0.data(), x0.size());
   solver.Initialize();
   EXPECT_TRUE(solver.IsInitialized());
+  fmt::print("Solver Initialized.\n");
 
   // Set the initial trajectory
   Eigen::VectorXd xinit = Eigen::VectorXd::Zero(num_states);
   Eigen::VectorXd uinit = Eigen::VectorXd::Zero(num_inputs);
-//  solver.SetState(xinit.data(), xinit.size());
-  fmt::print("Solver AssertInitialized.\n");
+  solver.SetState(xinit.data(), xinit.size(), 0, -1);
+  solver.SetInput(uinit.data(), uinit.size(), 0, -1);
 
+  // Solve
+  AltroOptions opts;
+  opts.verbose = Verbosity::Outer;
+  solver.SetOptions(opts);
+  SolveStatus status = solver.Solve();
 }

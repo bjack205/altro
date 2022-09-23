@@ -27,8 +27,34 @@ bool SolverImpl::Initialize() {
     knotpoints.push_back(std::move(z));
     t += h_[k];  // note this results in roundoff error
   }
+  trajectory_ = std::make_shared<TrajectoryXXd>(knotpoints);
 
   return is_initialized_;
+}
+
+void SolverImpl::SetCppSolverOptions() {
+  SolverOptions& cppopts = alsolver_.GetOptions();
+  cppopts.cost_tolerance = opts.tol_cost;
+  cppopts.gradient_tolerance = opts.tol_stationarity;
+  cppopts.maximum_penalty = opts.penalty_max;
+  cppopts.initial_penalty = opts.penalty_initial;
+  switch (opts.verbose) {
+    case Verbosity::Silent:
+      cppopts.verbose = LogLevel::kSilent;
+      break;
+    case Verbosity::Outer:
+      cppopts.verbose = LogLevel::kOuter;
+      break;
+    case Verbosity::Inner:
+      cppopts.verbose = LogLevel::kInner;
+      break;
+  }
+}
+
+void SolverImpl::Solve() {
+  alsolver_.SetTrajectory(trajectory_);
+  SetCppSolverOptions();
+  alsolver_.Solve();
 }
 
 }  // namespace altro

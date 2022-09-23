@@ -14,11 +14,11 @@ using a_float = double;
 class ALTROSolver;
 
 enum class SolveStatus {
-  SOLVED,
-  UNSOLVED,
-  MAX_ITERATIONS,
-  MAX_TIME,
-  RUNTIME_ERROR,
+  Success,
+  MaxIterations,
+  MaxObjectiveExceeded,
+  StateOutOfBounds,
+  InputOutOfBounds
 };
 
 using CallbackFunction = std::function<void(const ALTROSolver*)>;

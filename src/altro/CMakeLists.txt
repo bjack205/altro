@@ -1,14 +1,10 @@
 add_library(altro2
-  typedefs.hpp
 
   altro.hpp
   altro.cpp
 
   altro_solver.hpp
   altro_solver.cpp
-
-  solver_options.hpp
-  solver_options.cpp
 
   utils/formatting.hpp
 )

@@ -8,8 +8,8 @@
 #include <memory>
 #include <string>
 
-#include "solver_options.hpp"
-#include "typedefs.hpp"
+#include "altro/solver/solver_options.hpp"
+#include "altro/solver/typedefs.hpp"
 
 namespace altro {
 
@@ -18,7 +18,7 @@ class SolverImpl;  // Forward-declare the implementation. Note this is public, b
 
 class ALTROSolver {
  public:
-  ALTROSolver(int horizon_length);                   // Constructor
+  explicit ALTROSolver(int horizon_length);          // Constructor
   ALTROSolver(const ALTROSolver& other);             // Copy constructor
   ALTROSolver(ALTROSolver&& other);                  // Move constructor
   ALTROSolver& operator=(const ALTROSolver& other);  // Copy assignment
@@ -348,7 +348,7 @@ class ALTROSolver {
   /**********************************************
    * Options
    **********************************************/
-  void SetOptions(AltroOptions opts);
+  void SetOptions(const AltroOptions& opts);
   AltroOptions& GetOptions();
   const AltroOptions& GetOptions() const;
 
@@ -367,11 +367,11 @@ class ALTROSolver {
   /**********************************************
    * Solve
    **********************************************/
-  SolveStatus solve();
+  SolveStatus Solve();
 
   SolveStatus GetStatus() const;
   int GetIterations() const;
-  int GetSolveTime() const;
+  double GetSolveTimeMs() const;
   double GetPrimalFeasibility() const;
   double GetFinalObjective() const;
 
@@ -398,6 +398,8 @@ class ALTROSolver {
   int CheckKnotPointIndices(int k_start, int k_stop, LastIndex last_index) const;
   void AssertInitialized() const;
   void AssertDimensionsAreSet(int k_start, int k_stop, std::string msg = "") const;
+  void AssertStateDim(int k, int n) const;
+  void AssertInputDim(int k, int m) const;
 
   std::unique_ptr<SolverImpl> solver_;
   //  SolverImpl *solver_;

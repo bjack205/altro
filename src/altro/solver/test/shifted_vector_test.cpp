@@ -3,9 +3,10 @@
 // Copyright (c) 2022 Robotic Exploration Lab. All rights reserved.
 //
 
-#include "gtest/gtest.h"
-#include "solver/shifted_vector.hpp"
+#include "altro/solver/shifted_vector.hpp"
+
 #include "Eigen/Dense"
+#include "gtest/gtest.h"
 
 namespace altro {
 

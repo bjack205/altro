@@ -1,3 +1,3 @@
 add_subdirectory(altrocpp_interface)
-add_subdirectory(solver)
+add_subdirectory(altro/solver)
 add_subdirectory(altro)

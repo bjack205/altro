@@ -7,7 +7,7 @@
 
 #include "Eigen/Dense"
 #include "altro/problem/problem.hpp"
-#include "altro/typedefs.hpp"
+#include "altro/solver/typedefs.hpp"
 
 namespace altro {
 namespace cpp_interface {

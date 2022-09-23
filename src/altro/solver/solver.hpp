@@ -10,6 +10,8 @@
 #include "internal_types.hpp"
 #include "shifted_vector.hpp"
 #include "knotpoint_data.hpp"
+#include "solver_options.hpp"
+#include "solver_stats.hpp"
 
 #include "altro/augmented_lagrangian/al_solver.hpp"
 
@@ -19,13 +21,14 @@ class KnotPointData;
 
 class SolverImpl {
  public:
-  SolverImpl(int N) : horizon_length_(N), nx_(N+1,0), nu_(N+1,0), h_(N), problem_(N), alsolver_(N)  {
+  SolverImpl(int N) : horizon_length_(N), nx_(N+1,0), nu_(N+1,0), h_(N), problem_(N), opts(), alsolver_(N)  {
     altro::TrajectoryXXd traj(0,0,N);
-    initial_trajectory_ = std::make_shared<altro::TrajectoryXXd>(traj);
+    trajectory_ = std::make_shared<altro::TrajectoryXXd>(traj);
   }
 
   bool IsInitialized() const { return is_initialized_; }
   bool Initialize();
+  void Solve();
 
   // Problem definition
   int horizon_length_;
@@ -33,13 +36,18 @@ class SolverImpl {
   std::vector<int> nu_;   // number of inputs
   std::vector<float> h_;  // time steps
 
+  // Solver
+  AltroOptions opts;
+  AltroStats stats;
+
   // Old AltroCpp
   altro::problem::Problem problem_;
   altro::augmented_lagrangian::AugmentedLagrangianiLQR<Eigen::Dynamic, Eigen::Dynamic> alsolver_;
-  std::shared_ptr<altro::TrajectoryXXd> initial_trajectory_;
-
+  std::shared_ptr<altro::TrajectoryXXd> trajectory_;
 
  private:
+  void SetCppSolverOptions();
+
   bool is_initialized_ = false;
 
 };
