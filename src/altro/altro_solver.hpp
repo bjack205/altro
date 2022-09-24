@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "altro/common/exceptions.hpp"
 #include "altro/solver/solver_options.hpp"
 #include "altro/solver/typedefs.hpp"
 
@@ -43,7 +44,7 @@ class ALTROSolver {
    * @param k_stop (optional) Terminal (non-inclusive) knot point index.
    *                          If specified, sets all of the knot points in range `[k_start, k_stop)`
    */
-  void SetDimension(int num_states, int num_inputs, int k_start, int k_stop = 0);
+  ErrorCodes SetDimension(int num_states, int num_inputs, int k_start, int k_stop = 0);
 
   /**
    * @brief Set the time step between knot point index `k` and `k + 1`.
@@ -51,7 +52,7 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal knot point index (non-inclusive).
    */
-  void SetTimeStep(float h, int k_start = 0, int k_stop = 0);
+  ErrorCodes SetTimeStep(float h, int k_start = 0, int k_stop = 0);
 
   /**
    * @brief Specify the dynamics function and dynamics Jacobian at a knot point (or range or knot
@@ -78,7 +79,7 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal (non-inclusive) knot point index.
    */
-  void SetExplicitDynamics(ExplicitDynamicsFunction dynamics_function,
+  ErrorCodes SetExplicitDynamics(ExplicitDynamicsFunction dynamics_function,
                            ExplicitDynamicsJacobian dynamics_jacobian, int k_start, int k_stop = 0);
 
   /**
@@ -182,7 +183,7 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal (non-inclusive) knot point index.
    */
-  void SetQuadraticCost(const a_float* Q, const a_float* R, const a_float* H, const a_float* q,
+  ErrorCodes SetQuadraticCost(const a_float* Q, const a_float* R, const a_float* H, const a_float* q,
                         const a_float* r, a_float c, int k_start, int k_stop = 0);
 
   /**
@@ -201,7 +202,7 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal (non-inclusive) knot point index.
    */
-  void SetLQRCost(const a_float* Q_diag, const a_float* R_diag, const a_float* x_ref,
+  ErrorCodes SetLQRCost(const a_float* Q_diag, const a_float* R_diag, const a_float* x_ref,
                   const a_float* u_ref, int k_start, int k_stop = 0);
 
   /**
@@ -227,10 +228,10 @@ class ALTROSolver {
    * @return ConstraintIndex An opaque class that uniquely represents the constraint. Should be
    * saved if information about the constraint needs to be queried later.
    */
-  std::vector<ConstraintIndex> SetConstraint(ConstraintFunction constraint_function,
-                                             ConstraintJacobian constraint_jacobian, int dim,
-                                             ConstraintType constraint_type, std::string label,
-                                             int k_start, int k_stop = 0);
+  ErrorCodes SetConstraint(ConstraintFunction constraint_function,
+                           ConstraintJacobian constraint_jacobian, int dim,
+                           ConstraintType constraint_type, std::string label, int k_start,
+                           int k_stop, std::vector<ConstraintIndex>* con_inds);
 
   /**
    * @brief Set the upper bound on the states at an index (or a range of knot point indices)
@@ -297,7 +298,7 @@ class ALTROSolver {
    * @pre The first dimension must be specified with ::SetDimension
    * @param x0 Initial state
    */
-  void SetInitialState(const double* x0, int n);
+  ErrorCodes SetInitialState(const double* x0, int n);
 
   /**
    * @brief Set the state at a time step (or range of time steps). Used as the initial guess for the
@@ -309,7 +310,7 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal knot point index (non-inclusive).
    */
-  void SetState(const a_float* x, int n, int k_start, int k_stop = 0);
+  ErrorCodes SetState(const a_float* x, int n, int k_start, int k_stop = 0);
 
   /**
    * @brief Set the input at a time step (or range of time steps). Used as the initial guess for the
@@ -321,7 +322,7 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal knot point index (non-inclusive).
    */
-  void SetInput(const a_float* u, int m, int k_start, int k_stop = 0);
+  ErrorCodes SetInput(const a_float* u, int m, int k_start, int k_stop = 0);
 
   /**
    * @brief Set the dual variable associated with dynamics constraint at a time step (or range of
@@ -402,9 +403,9 @@ class ALTROSolver {
 
  private:
   enum class LastIndexMode { Inclusive, Exclusive };
-  int CheckKnotPointIndices(int k_start, int k_stop, LastIndexMode last_index) const;
-  void AssertInitialized() const;
-  void AssertDimensionsAreSet(int k_start, int k_stop, std::string msg = "") const;
+  ErrorCodes CheckKnotPointIndices(int k_start, int& k_stop, LastIndexMode last_index) const;
+  ErrorCodes AssertInitialized() const;
+  ErrorCodes AssertDimensionsAreSet(int k_start, int k_stop, std::string msg = "") const;
   void AssertStateDim(int k, int n) const;
   void AssertInputDim(int k, int m) const;
   void AssertTimestepsArePositive(std::string msg = "") const;
