@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 14)
 
 # Include needed modules
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+include(CMakePrintHelpers)
 include(FetchContent)
 include(AltroCMakeFunctions)
 include(FindThreads)
@@ -48,6 +49,11 @@ option(ALTRO_BUILD_DOCS "Build documentation for altro." OFF)
 # Use -fPIC option
 option(ALTRO_POSITION_INDEPENDENT_CODE "Use -fPIC flag when compiling altro" ON)
 
+# Arduino library installation
+option(ALTRO_ENABLE_ARDUINO_LIB_INSTALL "Add the install_arduino_lib target"  ON)
+set(ALTRO_ARDUINO_LIB_INSTALL_DIR $ENV{HOME}/Arduino/libraries CACHE FILEPATH "Directory where the altro Arduino library should be installed")
+cmake_print_variables(ALTRO_ARDUINO_LIB_INSTALL_DIR)
+
 #############################################
 # Dependencies
 #############################################
@@ -72,6 +78,17 @@ FetchContent_Declare(eigen
 )
 FetchContent_MakeAvailable(eigen)
 list(POP_BACK CMAKE_MESSAGE_CONTEXT)
+
+# ArduinoEigen
+if (ALTRO_ENABLE_ARDUINO_LIB_INSTALL)
+  list(APPEND CMAKE_MESSAGE_CONTEXT arduinoeigen)
+  FetchContent_Declare(arduinoeigen
+    GIT_REPOSITORY https://github.com/hideakitai/ArduinoEigen.git
+    GIT_TAG 0.2.3
+  )
+  FetchContent_MakeAvailable(arduinoeigen)
+  list(POP_BACK CMAKE_MESSAGE_CONTEXT)
+endif()
 
 #SET(AltroCpp_ROOT $ENV{HOME}/)
 #set(AltroCpp_SOURCE_DIR $ENV{HOME}/Code/altro-cpp)
@@ -112,3 +129,9 @@ if (${ALTRO_BUILD_TESTS})
   message(STATUS "Building altro testing suite.")
   add_subdirectory(test)
 endif()
+
+
+#############################################
+# Installation
+#############################################
+add_subdirectory(install)
