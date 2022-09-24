@@ -181,7 +181,7 @@ TEST(DoubleIntegrator, SolveGoalConstraint) {
   solver.SetLQRCost(Q.data(), R.data(), xf.data(), uf.data(), 0, LastIndex);
   solver.SetInitialState(x0.data(), x0.size());
   solver.SetConstraint(goalcon, goaljac, num_states, ConstraintType::EQUALITY, "Goal constraint",
-                       num_horizon);
+                       num_horizon, 0, nullptr);
   solver.Initialize();
   EXPECT_TRUE(solver.IsInitialized());
   fmt::print("Solver Initialized.\n");

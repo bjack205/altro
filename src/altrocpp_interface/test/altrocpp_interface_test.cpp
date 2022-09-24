@@ -135,7 +135,7 @@ TEST(AltroCppInterfaceTest, DoubleIntegrator) {
 //  prob.SetConstraint(std::make_shared<cpp_interface::EqualityConstraint>(goal_constraint),
 //                     num_segments);
   solver.SetConstraint(goalcon, goaljac, n, ConstraintType::EQUALITY, "Goal Constraint",
-                       num_segments);
+                       num_segments, 0, nullptr);
 
   // Initial Trajectory
   solver.Initialize();

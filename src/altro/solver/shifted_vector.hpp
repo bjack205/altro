@@ -45,11 +45,7 @@ class ShiftedVector {
 
  private:
   int GetTrueIndex(int i) {
-    if (i < 0) {
-      throw(std::range_error("Index must be positive."));
-    } else if (i > len_) {
-      throw(std::range_error("Index out of range."));
-    }
+    // Let std::vector handle the bounds checking
     return (start_index_ + i) % len_;
   }
 

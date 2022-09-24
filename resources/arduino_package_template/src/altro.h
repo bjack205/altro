@@ -6,6 +6,8 @@
 #pragma once
 
 #include "ArduinoEigen/ArduinoEigen.h"
+#undef ALTRO_USE_MULTITHREADING  // make sure multithreading is disabled
+#include "altro/altro.hpp"
 
 int AltroSum(int a, int b);
 

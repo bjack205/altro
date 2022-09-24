@@ -205,7 +205,9 @@ ErrorCodes ALTROSolver::SetInput(const a_float *u, int m, int k_start, int k_sto
   return ErrorCodes::NoError;
 }
 
-void ALTROSolver::SetOptions(const AltroOptions &opts) { solver_->opts = opts; }
+void ALTROSolver::SetOptions(const AltroOptions &opts) {
+  solver_->opts = opts;
+}
 
 SolveStatus ALTROSolver::Solve() {
   solver_->Solve();
@@ -240,14 +242,26 @@ a_float ALTROSolver::GetPrimalFeasibility() const { return solver_->stats.primal
 
 a_float ALTROSolver::GetFinalObjective() const { return solver_->stats.objective_value; }
 
-void ALTROSolver::GetState(a_float *x, int k) const {
+ErrorCodes ALTROSolver::GetState(a_float *x, int k) const {
+  int k_stop;
+  ErrorCodes err = CheckKnotPointIndices(k, k_stop, LastIndexMode::Exclusive);
+  err = AssertDimensionsAreSet(k, k_stop);
+  if (err != ErrorCodes::NoError) return err;
+
   int n = GetStateDim(k);
   Eigen::Map<Eigen::VectorXd>(x, n) = solver_->trajectory_->State(k);
+  return ErrorCodes::NoError;
 }
 
-void ALTROSolver::GetInput(a_float *u, int k) const {
+ErrorCodes ALTROSolver::GetInput(a_float *u, int k) const {
+  int k_stop;
+  ErrorCodes err = CheckKnotPointIndices(k, k_stop, LastIndexMode::Exclusive);
+  err = AssertDimensionsAreSet(k, k_stop);
+  if (err != ErrorCodes::NoError) return err;
+
   int m = GetInputDim(k);
   Eigen::Map<Eigen::VectorXd>(u, m) = solver_->trajectory_->Control(k);
+  return ErrorCodes::NoError;
 }
 
 /***************************************************************************************************
@@ -319,30 +333,36 @@ ErrorCodes ALTROSolver::CheckKnotPointIndices(int k_start, int &k_stop,
   return ErrorCodes::NoError;
 }
 
-void ALTROSolver::AssertStateDim(int k, int n) const {
+ErrorCodes ALTROSolver::AssertStateDim(int k, int n) const {
   int state_dim = GetStateDim(k);
   if (state_dim != n) {
-    throw(std::runtime_error(
-        fmt::format("State dimension mismatch. Got {}, expected {}.", n, state_dim)));
+    ALTRO_THROW(
+        AltroException(fmt::format("State dimension mismatch. Got {}, expected {}.", n, state_dim),
+                       ErrorCodes::DimensionMismatch));
   }
+  return ErrorCodes::NoError;
 }
 
-void ALTROSolver::AssertInputDim(int k, int m) const {
+ErrorCodes ALTROSolver::AssertInputDim(int k, int m) const {
   int input_dim = GetInputDim(k);
   if (input_dim != m) {
-    throw(std::runtime_error(
-        fmt::format("Input dimension mismatch. Got {}, expected {}.", m, input_dim)));
+    ALTRO_THROW(
+        AltroException(fmt::format("Input dimension mismatch. Got {}, expected {}.", m, input_dim),
+                       ErrorCodes::DimensionMismatch));
   }
+  return ErrorCodes::NoError;
 }
 
-void ALTROSolver::AssertTimestepsArePositive(std::string msg) const {
+ErrorCodes ALTROSolver::AssertTimestepsArePositive(std::string msg) const {
   for (int k = 0; k < GetHorizonLength(); ++k) {
     float h = GetTimeStep(k);
     if (h <= 0.0) {
-      throw(
-          std::runtime_error(fmt::format("{}. Timestep is nonpositive at timestep {}.\n", msg, k)));
+      ALTRO_THROW(
+          AltroException(fmt::format("{}. Timestep is nonpositive at timestep {}.\n", msg, k),
+                         ErrorCodes::NonPositive));
     }
   }
+  return ErrorCodes::NoError;
 }
 
 }  // namespace altro
