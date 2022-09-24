@@ -2,19 +2,19 @@ cmake_minimum_required(VERSION 3.17)
 
 if (NOT ALTRO_SOURCE_DIR)
   message(FATAL_ERROR "ALTRO_SOURCE_DIR must be set")
-endif()
+endif ()
 
 if (NOT FMT_SOURCE_DIR)
   message(FATAL_ERROR "FMT_SOURCE_DIR must be set")
-endif()
+endif ()
 
 if (NOT EIGEN_SOURCE_DIR)
   message(FATAL_ERROR "EIGEN_SOURCE_DIR must be set")
-endif()
+endif ()
 
 if (NOT LIB_INSTALL_PATH)
   message(FATAL_ERROR "LIB_INSTALL_PATH must be set")
-endif()
+endif ()
 
 message(STATUS "Installing arduino library")
 
@@ -33,3 +33,19 @@ file(COPY ${EIGEN_SOURCE_DIR}/ArduinoEigen/utils DESTINATION ${LIB_ROOT}/src/Ard
 
 # Step 4: Copy fmt header files
 file(COPY ${FMT_SOURCE_DIR}/include/ DESTINATION ${LIB_ROOT}/src)
+
+# Step 5: Copy altro source files
+file(COPY ${ALTRO_SOURCE_DIR}/src/
+  DESTINATION ${LIB_ROOT}/src
+  FILES_MATCHING
+  PATTERN *_test.cpp EXCLUDE
+  PATTERN *.hpp
+  PATTERN *.cpp
+)
+file(COPY $ENV{HOME}/Code/altro-cpp/altro/ DESTINATION ${LIB_ROOT}/src/altro
+  FILES_MATCHING
+  PATTERN *threadpool_impl* EXCLUDE
+  PATTERN *threadsafe_queue* EXCLUDE
+  PATTERN *.hpp
+  PATTERN *.cpp
+)

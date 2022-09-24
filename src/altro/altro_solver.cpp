@@ -155,7 +155,7 @@ ErrorCodes ALTROSolver::SetConstraint(ConstraintFunction constraint_function,
     }
 
     // Add constraint to problem
-    int ncon;
+    int ncon = -1;
     if (constraint_type == ConstraintType::EQUALITY) {
       cpp_interface::EqualityConstraint eq(n, m, dim, constraint_function, constraint_jacobian,
                                            label_k);
@@ -290,7 +290,7 @@ ErrorCodes ALTROSolver::AssertDimensionsAreSet(int k_start, int k_stop, std::str
 ErrorCodes ALTROSolver::CheckKnotPointIndices(int k_start, int &k_stop,
                                               LastIndexMode last_index) const {
   // Get upper index range
-  int terminal_index;
+  int terminal_index = 0;
   switch (last_index) {
     case LastIndexMode::Inclusive:
       terminal_index = GetHorizonLength();
