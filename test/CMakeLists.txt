@@ -4,7 +4,7 @@ add_executable(altro_api
 target_link_libraries(altro_api
   PRIVATE
   gtest_main
-  altro::altro2
+  altro::altro
   fmt::fmt
 )
 gtest_discover_tests(altro_api)
@@ -15,7 +15,7 @@ add_executable(double_integrator_test
 target_link_libraries(double_integrator_test
   PRIVATE
   gtest_main
-  altro::altro2
+  altro::altro
   fmt::fmt
   Eigen3::Eigen
 )

@@ -9,5 +9,5 @@ target_link_libraries(altrocpp_interface_test
   altrocpp::interface
   cost_function_examples
   constraint_examples
-  altro::altro2
+  altro::altro
 )

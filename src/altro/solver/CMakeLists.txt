@@ -35,5 +35,7 @@ target_include_directories(altro_impl
   $<BUILD_INTERFACE:${altro_SOURCE_DIR}/src>
 )
 
+set_target_properties(altro_impl PROPERTIES EXPORT_NAME impl)
+add_library(altro::impl ALIAS altro_impl)
 
 add_subdirectory(test)

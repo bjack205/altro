@@ -1,4 +1,4 @@
-add_library(altrocpp_interface
+add_library(altrocpp_interface STATIC
   altrocpp_interface.hpp
   altrocpp_interface.cpp
 )

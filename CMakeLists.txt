@@ -1,6 +1,7 @@
-# Used 3.21 features
-# - PROJECT_IS_TOP_LEVEL
-cmake_minimum_required(VERSION 3.21)
+# Used 3.23 features
+# - PROJECT_IS_TOP_LEVEL (3.21)
+# - FILE_SETS (3.23)
+cmake_minimum_required(VERSION 3.23)
 list(APPEND CMAKE_MESSAGE_CONTEXT altro)
 project(altro VERSION 0.1.0)
 
@@ -16,6 +17,7 @@ include(CMakePrintHelpers)
 include(FetchContent)
 include(AltroCMakeFunctions)
 include(FindThreads)
+include(GNUInstallDirs)
 
 #############################################
 # Options
@@ -53,7 +55,14 @@ endif()
 option(ALTRO_BUILD_DOCS "Build documentation for altro." OFF)
 
 # Use -fPIC option
-option(ALTRO_POSITION_INDEPENDENT_CODE "Use -fPIC flag when compiling altro" ON)
+#option(ALTRO_POSITION_INDEPENDENT_CODE "Use -fPIC flag when compiling altro" ON)
+if (BUILD_SHARED_LIBS)
+#  set(CMAKE_POSITION_INDEPENDENT_CODE ON FORCE)
+  message(STATUS "Building shared library.")
+  add_compile_options(-fPIC)
+else()
+  message(STATUS "Building static library. Note that a shared library is recommended.")
+endif()
 
 # Set default install prefix to /opt/rexlab/altro
 if(NOT WIN32 AND CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT AND PROJECT_IS_TOP_LEVEL)
@@ -78,6 +87,7 @@ FetchContent_Declare(fmt
   GIT_REPOSITORY https://github.com/fmtlib/fmt
   GIT_TAG a33701196adfad74917046096bf5a2aa0ab0bb50  # version 9.1.0
 )
+set(FMT_INSTALL ON CACHE BOOL "..." FORCE)
 FetchContent_MakeAvailable(fmt)
 list(POP_BACK CMAKE_MESSAGE_CONTEXT)
 
@@ -131,7 +141,6 @@ endif()
 #############################################
 
 # Output all binaries
-set(CMAKE_POSITION_INDEPENDENT_CODE ${ALTRO_USE_FPIC})
 add_subdirectory(src)
 
 #############################################
