@@ -30,7 +30,9 @@ git clone https://github.com/bjack205/altro
 cd altro
 mkdir build
 cd build   # TIP: you can shortcut these two with `take build` with zsh
-cmake --install --prefix=/desired/install/location .
+cmake -D BUILD_SHARED_LIBS=ON -D CMAKE_INSTALL_PREFIX=/desired/install/location ..
+cmake --build . -j4
+cmake --install .
 ```
 If the `--prefix` flag is left off (or `CMAKE_INSTALL_PREFIX` is unset), it will install to 
 `/opt/rexlab/altro` by default.
