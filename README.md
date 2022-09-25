@@ -11,7 +11,7 @@ your `CMakeLists.txt` file:
 list(APPEND CMAKE_MESSAGE_CONTEXT altro)
 FetchContent_Declare(altro
   GIT_REPOSITORY https://github.com/bjack205/altro
-  GIT_TAG 760424bfe4d0215e1516d79f585f1f03bdb3a803 
+  GIT_TAG 9819e66a6d20daf39e23bd9b45444b7f5aeb3322 
   )
 FetchContent_MakeAvailable(altro)
 list(POP_BACK CMAKE_MESSAGE_CONTEXT)
@@ -32,6 +32,8 @@ mkdir build
 cd build   # TIP: you can shortcut these two with `take build` with zsh
 cmake --install --prefix=/desired/install/location .
 ```
+If the `--prefix` flag is left off (or `CMAKE_INSTALL_PREFIX` is unset), it will install to 
+`/opt/rexlab/altro` by default.
 
 To use the installed version, use the `find_package` command. Here's a 
 minimal working example:
@@ -45,9 +47,12 @@ find_package(fmt REQUIRED)
 add_executable(main main.cpp)
 target_link_libraries(main PRIVATE altro::altro fmt::fmt Eigen3::Eigen)
 ```
+
 Note that altro internally uses the `fmt` and `Eigen` libraries. To link against the same
 versions used by altro, use the `fmt::fmt` and `Eigen3::Eigen` targets brought in 
 automatically when importing altro.
+
+Also note that `CMAKE_PREFIX_PATH` should be set to whatever directory you used in the install.
 
 ## Arduino
 This shows how to compile the code to use on a Teensy microcontroller.
