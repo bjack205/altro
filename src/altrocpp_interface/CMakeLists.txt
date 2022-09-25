@@ -5,15 +5,14 @@ add_library(altrocpp_interface
 target_link_libraries(altrocpp_interface
   PUBLIC
   altrocpp::altro
-  altro::altro2
   Eigen3::Eigen
 
   PRIVATE
   fmt::fmt
 )
 target_include_directories(altrocpp_interface
-  PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/..
+  PRIVATE
+  $<BUILD_INTERFACE:${altro_SOURCE_DIR}/src>
 )
 
 add_library(altrocpp::interface ALIAS altrocpp_interface)

@@ -17,7 +17,7 @@ target_link_libraries(altro2
 )
 target_include_directories(altro2
   PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/..
+  $<BUILD_INTERFACE:${altro_SOURCE_DIR}/src>
 )
 
 add_library(altro::altro2 ALIAS altro2)

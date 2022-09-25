@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "altro/common/exceptions.hpp"
+#include "altro/solver/exceptions.hpp"
 #include "altro/solver/solver_options.hpp"
 #include "altro/solver/typedefs.hpp"
 

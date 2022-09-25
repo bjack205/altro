@@ -1,8 +1,14 @@
-cmake_minimum_required(VERSION 3.13)
+# Used 3.21 features
+# - PROJECT_IS_TOP_LEVEL
+cmake_minimum_required(VERSION 3.21)
 list(APPEND CMAKE_MESSAGE_CONTEXT altro)
 project(altro VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 14)
+
+# Organization info
+set(ORGANIZATION_NAME_FULL "Robotic Exploration Lab")
+set(ORGANIZATION_NAME "rexlab")
 
 # Include needed modules
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
@@ -49,6 +55,13 @@ option(ALTRO_BUILD_DOCS "Build documentation for altro." OFF)
 # Use -fPIC option
 option(ALTRO_POSITION_INDEPENDENT_CODE "Use -fPIC flag when compiling altro" ON)
 
+# Set default install prefix to /opt/rexlab/altro
+if(NOT WIN32 AND CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT AND PROJECT_IS_TOP_LEVEL)
+  message(STATUS "Setting Altro install prefix to /opt/${ORGANIZATION_NAME}/${PROJECT_NAME}")
+  set(CMAKE_INSTALL_PREFIX "/opt/${ORGANIZATION_NAME}/${PROJECT_NAME}" CACHE FILEPATH "Base install location" FORCE)
+  set(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT OFF)
+endif()
+
 # Arduino library installation
 option(ALTRO_ENABLE_RUNTIME_EXCEPTIONS "Enable C++ runtime exceptions. If disabled, error return codes will be returned instead." OFF)
 option(ALTRO_ENABLE_ARDUINO_LIB_INSTALL "Add the install_arduino_lib target"  ON)
@@ -71,7 +84,6 @@ list(POP_BACK CMAKE_MESSAGE_CONTEXT)
 # Add Eigen
 list(APPEND CMAKE_MESSAGE_CONTEXT eigen)
 set(EIGEN_BUILD_DOC OFF CACHE BOOL "Enable creation of Eigen documentation." FORCE)
-set(BUILD_TESTING OFF CACHE BOOL "Enable creation of Eigen tests." FORCE)
 set(EIGEN_BUILD_TESTING OFF CACHE BOOL "Enable creation of Eigen tests." FORCE)
 FetchContent_Declare(eigen
   GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git

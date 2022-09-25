@@ -6,7 +6,6 @@
 #include "altro_solver.hpp"
 
 #include "Eigen/Dense"
-#include "altro/common/exceptions.hpp"
 #include "altrocpp_interface/altrocpp_interface.hpp"
 #include "solver/solver.hpp"
 #include "utils/formatting.hpp"
@@ -28,7 +27,7 @@ altro::ALTROSolver::~ALTROSolver() = default;
 
 ErrorCodes ALTROSolver::SetDimension(int num_states, int num_inputs, int k_start, int k_stop) {
   if (IsInitialized()) {
-    ALTRO_THROW(AltroException("Cannot change the dimension once the solver has been initialized.",
+    ALTRO_THROW(AltroErrorException("Cannot change the dimension once the solver has been initialized.",
                                ErrorCodes::SolverAlreadyInitialized));
   }
   ErrorCodes err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
@@ -79,7 +78,7 @@ ErrorCodes ALTROSolver::SetQuadraticCost(const a_float *Q, const a_float *R, con
     int n = this->GetStateDim(k);
     int m = this->GetInputDim(k);
     if (n <= 0 || m < 0) {
-      ALTRO_THROW(AltroException(
+      ALTRO_THROW(AltroErrorException(
           fmt::format("Cannot set cost at knotpoint {}, dimensions haven't been specified yet.", k),
           ErrorCodes::DimensionUnknown));
     }
@@ -125,7 +124,7 @@ ErrorCodes ALTROSolver::SetInitialState(const double *x0, int n) {
   if (!first_state_dim_is_set) {
     solver_->nx_[0] = n;
   } else if (n != n0) {
-    ALTRO_THROW(AltroException(fmt::format("Dimension mismatch: The provided state dimension was "
+    ALTRO_THROW(AltroErrorException(fmt::format("Dimension mismatch: The provided state dimension was "
                                            "{}, but was previously set to {}.",
                                            n, n0),
                                ErrorCodes::DimensionMismatch));
@@ -269,7 +268,7 @@ ErrorCodes ALTROSolver::GetInput(a_float *u, int k) const {
  ***************************************************************************************************/
 ErrorCodes ALTROSolver::AssertInitialized() const {
   if (!this->IsInitialized()) {
-    ALTRO_THROW(AltroException("Solver must be initialized.", ErrorCodes::SolverNotInitialized));
+    ALTRO_THROW(AltroErrorException("Solver must be initialized.", ErrorCodes::SolverNotInitialized));
   }
   return ErrorCodes::NoError;
 }
@@ -280,7 +279,7 @@ ErrorCodes ALTROSolver::AssertDimensionsAreSet(int k_start, int k_stop, std::str
     int m = GetInputDim(k);
     if (n <= 0 || m <= 0) {
       ALTRO_THROW(
-          AltroException(fmt::format("{}. Dimensions at knotpoint {} haven't been set.", msg, k),
+          AltroErrorException(fmt::format("{}. Dimensions at knotpoint {} haven't been set.", msg, k),
                          ErrorCodes::DimensionUnknown));
     }
   }
@@ -313,13 +312,13 @@ ErrorCodes ALTROSolver::CheckKnotPointIndices(int k_start, int &k_stop,
   int N = GetHorizonLength();
   if (k_start < 0 || k_start > terminal_index) {
     // TODO: use custom exception type
-    ALTRO_THROW(AltroException(
+    ALTRO_THROW(AltroErrorException(
         fmt::format("Knot point index out of range. Should be in range {} - {}, got {}.", 0, N,
                     k_start),
         ErrorCodes::BadIndex));
   }
   if (k_stop < 0 || k_start > terminal_index + 1) {
-    ALTRO_THROW(AltroException(
+    ALTRO_THROW(AltroErrorException(
         fmt::format("Terminal knot point index out of range. Should be in range {} - {}, got {}.",
                     0, N + 1, k_stop),
         ErrorCodes::BadIndex))
@@ -337,7 +336,7 @@ ErrorCodes ALTROSolver::AssertStateDim(int k, int n) const {
   int state_dim = GetStateDim(k);
   if (state_dim != n) {
     ALTRO_THROW(
-        AltroException(fmt::format("State dimension mismatch. Got {}, expected {}.", n, state_dim),
+        AltroErrorException(fmt::format("State dimension mismatch. Got {}, expected {}.", n, state_dim),
                        ErrorCodes::DimensionMismatch));
   }
   return ErrorCodes::NoError;
@@ -347,7 +346,7 @@ ErrorCodes ALTROSolver::AssertInputDim(int k, int m) const {
   int input_dim = GetInputDim(k);
   if (input_dim != m) {
     ALTRO_THROW(
-        AltroException(fmt::format("Input dimension mismatch. Got {}, expected {}.", m, input_dim),
+        AltroErrorException(fmt::format("Input dimension mismatch. Got {}, expected {}.", m, input_dim),
                        ErrorCodes::DimensionMismatch));
   }
   return ErrorCodes::NoError;
@@ -358,7 +357,7 @@ ErrorCodes ALTROSolver::AssertTimestepsArePositive(std::string msg) const {
     float h = GetTimeStep(k);
     if (h <= 0.0) {
       ALTRO_THROW(
-          AltroException(fmt::format("{}. Timestep is nonpositive at timestep {}.\n", msg, k),
+          AltroErrorException(fmt::format("{}. Timestep is nonpositive at timestep {}.\n", msg, k),
                          ErrorCodes::NonPositive));
     }
   }

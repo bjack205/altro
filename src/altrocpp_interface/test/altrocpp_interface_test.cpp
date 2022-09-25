@@ -11,7 +11,7 @@
 #include "altro/problem/problem.hpp"
 #include "altro/solver/solver.hpp"
 #include "altro/utils/formatting.hpp"
-#include "augmented_lagrangian/al_solver.hpp"
+#include "altro/augmented_lagrangian/al_solver.hpp"
 #include "examples/basic_constraints.hpp"
 #include "fmt/chrono.h"
 #include "fmt/core.h"
