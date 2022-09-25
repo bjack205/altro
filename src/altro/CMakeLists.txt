@@ -1,5 +1,6 @@
-add_library(altro
-  typedefs.hpp
+add_subdirectory(solver)
+
+add_library(altro2
 
   altro.hpp
   altro.cpp
@@ -7,17 +8,16 @@ add_library(altro
   altro_solver.hpp
   altro_solver.cpp
 
-  solver_options.hpp
-  solver_options.cpp
+  utils/formatting.hpp
 )
-target_link_libraries(altro
+target_link_libraries(altro2
   PRIVATE
   fmt::fmt
   altro_impl
 )
-target_include_directories(altro
+target_include_directories(altro2
   PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
 
-add_library(altro::altro ALIAS altro)
+add_library(altro::altro2 ALIAS altro2)

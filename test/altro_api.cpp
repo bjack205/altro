@@ -11,8 +11,7 @@
 TEST(AltroAPI, Constructor) {
   fmt::print("Hello from testing suite!\n");
 
-  altro::ALTROSolver solver;
+  int N = 10;
+  altro::ALTROSolver solver(N);
 
-  const int N = 10;
-//  solver.SetHorizonLength(N);
 }

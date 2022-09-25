@@ -6,9 +6,12 @@
 #pragma once
 
 #include <memory>
+#include <string>
+#include <vector>
 
-#include "solver_options.hpp"
-#include "typedefs.hpp"
+#include "altro/common/exceptions.hpp"
+#include "altro/solver/solver_options.hpp"
+#include "altro/solver/typedefs.hpp"
 
 namespace altro {
 
@@ -17,12 +20,12 @@ class SolverImpl;  // Forward-declare the implementation. Note this is public, b
 
 class ALTROSolver {
  public:
-  ALTROSolver(int horizon_length);                     // Constructor
-  ALTROSolver(const ALTROSolver& other);               // Copy constructor
-  ALTROSolver(ALTROSolver&& other);                    // Move constructor
-  ALTROSolver& operator=(const ALTROSolver& other);    // Copy assignment
-  ALTROSolver& operator=(ALTROSolver&& other);         // Move assignment
-  ~ALTROSolver();                                      // Destructor
+  explicit ALTROSolver(int horizon_length);          // Constructor
+  ALTROSolver(const ALTROSolver& other);             // Copy constructor
+  ALTROSolver(ALTROSolver&& other);                  // Move constructor
+  ALTROSolver& operator=(const ALTROSolver& other);  // Copy assignment
+  ALTROSolver& operator=(ALTROSolver&& other);       // Move assignment
+  ~ALTROSolver();                                    // Destructor
 
   /**********************************************
    * Problem definition
@@ -41,7 +44,15 @@ class ALTROSolver {
    * @param k_stop (optional) Terminal (non-inclusive) knot point index.
    *                          If specified, sets all of the knot points in range `[k_start, k_stop)`
    */
-  void SetDimension(int num_states, int num_inputs, int k_start, int k_stop = 0);
+  ErrorCodes SetDimension(int num_states, int num_inputs, int k_start, int k_stop = 0);
+
+  /**
+   * @brief Set the time step between knot point index `k` and `k + 1`.
+   * @param h Time step
+   * @param k_start Knot point index
+   * @param k_stop (optional) Terminal knot point index (non-inclusive).
+   */
+  ErrorCodes SetTimeStep(float h, int k_start = 0, int k_stop = 0);
 
   /**
    * @brief Specify the dynamics function and dynamics Jacobian at a knot point (or range or knot
@@ -68,8 +79,9 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal (non-inclusive) knot point index.
    */
-  void SetExplicitDynamics(ExplicitDynamicsFunction dynamics_function,
-                           ExplicitDynamicsJacobian dynamics_jacobian, int k_start, int k_stop = 0);
+  ErrorCodes SetExplicitDynamics(ExplicitDynamicsFunction dynamics_function,
+                                 ExplicitDynamicsJacobian dynamics_jacobian, int k_start,
+                                 int k_stop = 0);
 
   /**
    * @brief Specify the dynamics function and dynamics Jacobian at a knot point (or range or knot
@@ -99,8 +111,9 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal (non-inclusive) knot point index.
    */
-  void SetImplicitDynamics(ImplicitDynamicsFunction dynamics_function,
-                           ImplicitDynamicsJacobian dynamics_jacobian, int k_start, int k_stop = 0);
+  ErrorCodes SetImplicitDynamics(ImplicitDynamicsFunction dynamics_function,
+                                 ImplicitDynamicsJacobian dynamics_jacobian, int k_start,
+                                 int k_stop = 0);
 
   /**
    * @brief Set the cost function at a knot point (or range of knot points)
@@ -117,7 +130,7 @@ class ALTROSolver {
    * @param k_start
    * @param k_stop
    */
-  void SetCostFunction(CostFunction cost_function, int k_start, int k_stop = 0);
+  ErrorCodes SetCostFunction(CostFunction cost_function, int k_start, int k_stop = 0);
 
   /**
    * @brief Set cost function properties
@@ -129,8 +142,71 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal (non-inclusive) knot point index.
    */
-  void SetCostFunctionProperties(bool is_quadratic, bool Q_is_diagonal, bool R_is_diagonal,
-                                 bool H_is_zero, int k_start, int k_stop = 0);
+  ErrorCodes SetCostFunctionProperties(bool is_quadratic, bool Q_is_diagonal, bool R_is_diagonal,
+                                       bool H_is_zero, int k_start, int k_stop = 0);
+
+  /**
+   * @brief Define a quadratic cost with diagonal cost matrices
+   *
+   * Cost of the form:
+   * \f[
+   * \frac{1}{2} x^T Q x + q^T x + \frac{1}{2} u^T R u + r^T u + c
+   * \f]
+   * where \f$Q\f$ and \f$R\f$ are diagonal positive semi-definite matrices.
+   *
+   * @param Q_diag (n,) diagonal of quadratic state penalty matrix
+   * @param R_diag (m,) diagonal of quadratic input penalty matrix
+   * @param q (n,) linear state term
+   * @param r (m,) linear input term
+   * @param c constant term
+   * @param k_start Knot point index
+   * @param k_stop (optional) Terminal (non-inclusive) knot point index.
+   */
+  ErrorCodes SetDiagonalCost(const a_float* Q_diag, const a_float* R_diag, const a_float* q,
+                             const a_float* r, a_float c, int k_start, int k_stop = 0);
+
+  /**
+   * @brief Set a general (dense) quadratic cost
+   *
+   * Cost of the form:
+   * \f[
+   * \frac{1}{2} x^T Q x + q^T x + \frac{1}{2} u^T R u + r^T u + u^T H x + c
+   * \f]
+   * where \f$Q\f$ and \f$R\f$ are symmetric positive semi-definite matrices.
+   *
+   * All matrices are assumed to be stored in *column-major* format.
+   *
+   * @param Q (n,n) quadratic state penalty matrix
+   * @param R (m,m) quadratic input penalty matrix
+   * @param H (m,n) quadratic cross-term penalty matrix
+   * @param q (n,) linear state term
+   * @param r (m,) linear input term
+   * @param c constant term
+   * @param k_start Knot point index
+   * @param k_stop (optional) Terminal (non-inclusive) knot point index.
+   */
+  ErrorCodes SetQuadraticCost(const a_float* Q, const a_float* R, const a_float* H,
+                              const a_float* q, const a_float* r, a_float c, int k_start,
+                              int k_stop = 0);
+
+  /**
+   * @brief Set an LQR tracking objective
+   *
+   * Cost of the form:
+   * \f[
+   * \frac{1}{2} (x - x_\text{ref})^T Q (x - x_\text{ref})
+   * + \frac{1}{2} (u - u_\text{ref})^T R (u - u_\text{ref})
+   * \f]
+   *
+   * @param Q_diag (n,) diagonal of quadratic state penalty matrix
+   * @param R_diag (m,) diagonal of quadratic input penalty matrix
+   * @param x_ref (n,) state reference
+   * @param u_ref (m,) input reference
+   * @param k_start Knot point index
+   * @param k_stop (optional) Terminal (non-inclusive) knot point index.
+   */
+  ErrorCodes SetLQRCost(const a_float* Q_diag, const a_float* R_diag, const a_float* x_ref,
+                        const a_float* u_ref, int k_start, int k_stop = 0);
 
   /**
    * @brief Set constraint function at a knot point (or range of knot points)
@@ -149,14 +225,16 @@ class ALTROSolver {
    *    `void(a_float* jac, const a_float* x, const a_float* u)`.
    * @param dim Length of the constraint
    * @param constraint_type One of the valid constraint types.
+   * @param label A short descriptive label for the constraint
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal knot point index (non-inclusive).
    * @return ConstraintIndex An opaque class that uniquely represents the constraint. Should be
    * saved if information about the constraint needs to be queried later.
    */
-  ConstraintIndex SetConstraint(ConstraintFunction constraint_function,
-                                ConstraintJacobian constraint_jacobian, int dim,
-                                ConstraintType constraint_type, int k_start, int k_stop = 0);
+  ErrorCodes SetConstraint(ConstraintFunction constraint_function,
+                           ConstraintJacobian constraint_jacobian, int dim,
+                           ConstraintType constraint_type, std::string label, int k_start,
+                           int k_stop, std::vector<ConstraintIndex>* con_inds);
 
   /**
    * @brief Set the upper bound on the states at an index (or a range of knot point indices)
@@ -167,7 +245,7 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal knot point index (non-inclusive).
    */
-  void SetStateUpperBound(a_float* x_max, int k_start, int k_stop = 0);
+  ErrorCodes SetStateUpperBound(a_float* x_max, int k_start, int k_stop = 0);
 
   /**
    * @brief Set the lower bound on the states at an index (or a range of knot point indices)
@@ -178,7 +256,7 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal knot point index (non-inclusive).
    */
-  void SetStateLowerBound(a_float* x_min, int k_start, int k_stop = 0);
+  ErrorCodes SetStateLowerBound(a_float* x_min, int k_start, int k_stop = 0);
 
   /**
    * @brief Set the upper bound on the inputs at an index (or a range of knot point indices)
@@ -189,7 +267,7 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal knot point index (non-inclusive).
    */
-  void SetInputUpperBound(a_float* u_max, int k_start, int k_stop = 0);
+  ErrorCodes SetInputUpperBound(a_float* u_max, int k_start, int k_stop = 0);
 
   /**
    * @brief Set the lower bound on the inputs at an index (or a range of knot point indices)
@@ -200,7 +278,7 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal knot point index (non-inclusive).
    */
-  void SetInputLowerBound(a_float* u_min, int k_start, int k_stop = 0);
+  ErrorCodes SetInputLowerBound(a_float* u_min, int k_start, int k_stop = 0);
 
   /**
    * @brief Check if solver has been initialized.
@@ -210,7 +288,7 @@ class ALTROSolver {
    *
    * @return
    */
-  bool InInitialized() const;
+  bool IsInitialized() const;
 
   /**********************************************
    * Initialization
@@ -218,15 +296,24 @@ class ALTROSolver {
   void Initialize();
 
   /**
+   * @brief Set the initial state
+   *
+   * @pre The first dimension must be specified with ::SetDimension
+   * @param x0 Initial state
+   */
+  ErrorCodes SetInitialState(const double* x0, int n);
+
+  /**
    * @brief Set the state at a time step (or range of time steps). Used as the initial guess for the
    * trajectory.
    *
    * @pre Solver must be initialized.
    * @param x State vector
+   * @param n Length of state vector
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal knot point index (non-inclusive).
    */
-  void SetState(const a_float* x, int k_start, int k_stop = 0);
+  ErrorCodes SetState(const a_float* x, int n, int k_start, int k_stop = 0);
 
   /**
    * @brief Set the input at a time step (or range of time steps). Used as the initial guess for the
@@ -234,10 +321,11 @@ class ALTROSolver {
    *
    * @pre Solver must be initialized.
    * @param u Input vector
+   * @param m Length of input vector
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal knot point index (non-inclusive).
    */
-  void SetInput(const a_float* u, int k_start, int k_stop = 0);
+  ErrorCodes SetInput(const a_float* u, int m, int k_start, int k_stop = 0);
 
   /**
    * @brief Set the dual variable associated with dynamics constraint at a time step (or range of
@@ -248,7 +336,7 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal knot point index (non-inclusive).
    */
-  void SetDualDynamics(const a_float* y, int k_start, int k_stop = 0);
+  ErrorCodes SetDualDynamics(const a_float* y, int k_start, int k_stop = 0);
 
   /**
    * @brief Set the dual variable for a general constraint
@@ -257,19 +345,19 @@ class ALTROSolver {
    * @param z Dual variable for the constraint
    * @param constraint_index Constraint index returned from `SetConstraint`
    */
-  void SetDualGeneric(const a_float* z, const ConstraintIndex& constraint_index);
+  ErrorCodes SetDualGeneric(const a_float* z, const ConstraintIndex& constraint_index);
 
-  void SetDualStateUpperBound(const a_float* b_x_upper, int k_start, int k_stop = 0);
-  void SetDualStateLowerBound(const a_float* b_x_lower, int k_start, int k_stop = 0);
-  void SetDualInputUpperBound(const a_float* b_u_upper, int k_start, int k_stop = 0);
-  void SetDualInputLowerBound(const a_float* b_u_lower, int k_start, int k_stop = 0);
+  ErrorCodes SetDualStateUpperBound(const a_float* b_x_upper, int k_start, int k_stop = 0);
+  ErrorCodes SetDualStateLowerBound(const a_float* b_x_lower, int k_start, int k_stop = 0);
+  ErrorCodes SetDualInputUpperBound(const a_float* b_u_upper, int k_start, int k_stop = 0);
+  ErrorCodes SetDualInputLowerBound(const a_float* b_u_lower, int k_start, int k_stop = 0);
 
   /**********************************************
    * Options
    **********************************************/
-  void SetOptions(SolverOptions opts);
-  SolverOptions& GetOptions();
-  const SolverOptions& GetOptions() const;
+  void SetOptions(const AltroOptions& opts);
+  AltroOptions& GetOptions();
+  const AltroOptions& GetOptions() const;
 
   /**
    * @brief Set a callback function that is call each iteration (of iLQR).
@@ -281,36 +369,51 @@ class ALTROSolver {
    * @param callback Callback function with the following signature:
    *    `void(const ALTROSolver*)
    */
-  void SetCallback(CallbackFunction callback);
+  ErrorCodes SetCallback(CallbackFunction callback);
 
   /**********************************************
    * Solve
    **********************************************/
-  SolveStatus solve();
+  SolveStatus Solve();
 
   SolveStatus GetStatus() const;
   int GetIterations() const;
-  int GetSolveTime() const;
-  double GetPrimalFeasibility() const;
-  double GetFinalObjective() const;
+  a_float GetSolveTimeMs() const;
+  a_float GetPrimalFeasibility() const;
+  a_float GetFinalObjective() const;
+  a_float CalcCost();
 
   /**********************************************
    * Getters
    **********************************************/
-  void GetFeedbackGain(a_float* K, int k);
-  void GetFeedforwardGain(a_float* d, int k);
-  void GetState(a_float* x, int k);
-  void GetInput(a_float* u, int k);
-  void GetDualDynamics(a_float* y, int k);
-  void GetDualGeneral(a_float* z, int ConstraintIndex);
-  void GetDualStateUpperBound(a_float* b_x_upper, int ConstraintIndex);
-  void GetDualStateLowerBound(a_float* b_x_lower, int ConstraintIndex);
-  void GetDualInputUpperBound(a_float* b_u_upper, int ConstraintIndex);
-  void GetDualInputLowerBound(a_float* b_u_lower, int ConstraintIndex);
+  int GetHorizonLength() const;
+  int GetStateDim(int k) const;
+  int GetInputDim(int k) const;
+  float GetFinalTime() const;
+  float GetTimeStep(int k) const;
+  ErrorCodes GetState(a_float* x, int k) const;
+  ErrorCodes GetInput(a_float* u, int k) const;
+  ErrorCodes GetDualDynamics(a_float* y, int k) const;
+  ErrorCodes GetDualGeneral(a_float* z, int ConstraintIndex) const;
+  ErrorCodes GetDualStateUpperBound(a_float* b_x_upper, int ConstraintIndex) const;
+  ErrorCodes GetDualStateLowerBound(a_float* b_x_lower, int ConstraintIndex) const;
+  ErrorCodes GetDualInputUpperBound(a_float* b_u_upper, int ConstraintIndex) const;
+  ErrorCodes GetDualInputLowerBound(a_float* b_u_lower, int ConstraintIndex) const;
+  ErrorCodes GetFeedbackGain(a_float* K, int k) const;
+  ErrorCodes GetFeedforwardGain(a_float* d, int k) const;
+
+  std::unique_ptr<SolverImpl> solver_;
 
  private:
-  std::unique_ptr<SolverImpl> solver_;
-//  SolverImpl *solver_;
+  enum class LastIndexMode { Inclusive, Exclusive };
+  ErrorCodes CheckKnotPointIndices(int k_start, int& k_stop, LastIndexMode last_index) const;
+  ErrorCodes AssertInitialized() const;
+  ErrorCodes AssertDimensionsAreSet(int k_start, int k_stop, std::string msg = "") const;
+  ErrorCodes AssertStateDim(int k, int n) const;
+  ErrorCodes AssertInputDim(int k, int m) const;
+  ErrorCodes AssertTimestepsArePositive(std::string msg = "") const;
+
+  //  SolverImpl *solver_;
 };
 
 }  // namespace altro

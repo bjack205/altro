@@ -13,12 +13,14 @@ using a_float = double;
 
 class ALTROSolver;
 
+constexpr int LastIndex = -1;
+
 enum class SolveStatus {
-  SOLVED,
-  UNSOLVED,
-  MAX_ITERATIONS,
-  MAX_TIME,
-  RUNTIME_ERROR,
+  Success,
+  MaxIterations,
+  MaxObjectiveExceeded,
+  StateOutOfBounds,
+  InputOutOfBounds
 };
 
 using CallbackFunction = std::function<void(const ALTROSolver*)>;
@@ -41,21 +43,23 @@ using CostFunction = std::function<a_float(const a_float* x, const a_float* u)>;
 using CostGradient =
     std::function<void(a_float* dx, a_float* du, const a_float* x, const a_float* u)>;
 
-using CostHessian = std::function<void(a_float* ddx, a_float* ddu, a_float* dudx, const a_float* x,
+using CostHessian = std::function<void(a_float* ddx, a_float* ddu, a_float* dxdu, const a_float* x,
                                        const a_float* u)>;
 
 using ConstraintFunction = std::function<void(a_float* val, const a_float* x, const a_float* u)>;
 using ConstraintJacobian = std::function<void(a_float* jac, const a_float* x, const a_float* u)>;
 
-enum class ConstraintType {EQUALITY, INEQUALITY, SECOND_ORDER_CONE};
+enum class ConstraintType { EQUALITY, INEQUALITY, SECOND_ORDER_CONE };
 
 class ConstraintIndex {
  public:
   int KnotPointIndex() const { return k; }
+
   friend ALTROSolver;
 
  private:
   ConstraintIndex(int k, int i) : k(k), i(i) {}
+
   int k;
   int i;
 };
