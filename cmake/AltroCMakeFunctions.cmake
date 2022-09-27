@@ -4,9 +4,10 @@ function(altro_unit_test testname)
       target_link_libraries(${testname}_test
         PRIVATE
         gtest_main
-        altro_impl
+        altro::impl
         fmt::fmt
         Eigen3::Eigen
+        altro::test_utils
       )
     gtest_discover_tests(${testname}_test)
     target_include_directories(${testname}_test PRIVATE ${PROJECT_SOURCE_DIR}/src)

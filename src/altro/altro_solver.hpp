@@ -127,23 +127,30 @@ class ALTROSolver {
    * `std::function`).
    *
    * @param cost_function A function pointer of the form
+   *           `a_float(const a_float *x, const a_float *u)`
+   * @param cost_gradient A function pointer of the form
+   *           `void(a_float *dx, a_float *du, const a_float *x, const a_float *u)`
+   * @param cost_hessian A function pointer of the form
+   *           `void(a_float *ddx, a_float *ddu, a_float *dxdu, const a_float *x, const a_float *u)`
    * @param k_start
    * @param k_stop
    */
-  ErrorCodes SetCostFunction(CostFunction cost_function, int k_start, int k_stop = 0);
+  ErrorCodes SetCostFunction(CostFunction cost_function, CostGradient cost_gradient,
+                             CostHessian cost_hessian, int k_start, int k_stop = 0);
 
-  /**
-   * @brief Set cost function properties
-   *
-   * @param is_quadratic Is the cost function a convex quadratic?
-   * @param Q_is_diagonal Is the Hessian wrt x a diagonal matrix?
-   * @param R_is_diagonal Is the Hessian wrt u a diagonal matrix?
-   * @param H_is_zero Are the states and inputs independent?
-   * @param k_start Knot point index
-   * @param k_stop (optional) Terminal (non-inclusive) knot point index.
-   */
-  ErrorCodes SetCostFunctionProperties(bool is_quadratic, bool Q_is_diagonal, bool R_is_diagonal,
-                                       bool H_is_zero, int k_start, int k_stop = 0);
+  //  /**
+  //   * @brief Set cost function properties
+  //   *
+  //   * @param is_quadratic Is the cost function a convex quadratic?
+  //   * @param Q_is_diagonal Is the Hessian wrt x a diagonal matrix?
+  //   * @param R_is_diagonal Is the Hessian wrt u a diagonal matrix?
+  //   * @param H_is_zero Are the states and inputs independent?
+  //   * @param k_start Knot point index
+  //   * @param k_stop (optional) Terminal (non-inclusive) knot point index.
+  //   */
+  //  ErrorCodes SetCostFunctionProperties(bool is_quadratic, bool Q_is_diagonal, bool
+  //  R_is_diagonal,
+  //                                       bool H_is_zero, int k_start, int k_stop = 0);
 
   /**
    * @brief Define a quadratic cost with diagonal cost matrices
@@ -162,8 +169,9 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal (non-inclusive) knot point index.
    */
-  ErrorCodes SetDiagonalCost(const a_float* Q_diag, const a_float* R_diag, const a_float* q,
-                             const a_float* r, a_float c, int k_start, int k_stop = 0);
+  ErrorCodes SetDiagonalCost(int num_states, int num_inputs, const a_float* Q_diag,
+                             const a_float* R_diag, const a_float* q, const a_float* r, a_float c,
+                             int k_start, int k_stop = 0);
 
   /**
    * @brief Set a general (dense) quadratic cost
@@ -185,9 +193,9 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal (non-inclusive) knot point index.
    */
-  ErrorCodes SetQuadraticCost(const a_float* Q, const a_float* R, const a_float* H,
-                              const a_float* q, const a_float* r, a_float c, int k_start,
-                              int k_stop = 0);
+  ErrorCodes SetQuadraticCost(int num_states, int num_inputs, const a_float* Q, const a_float* R,
+                              const a_float* H, const a_float* q, const a_float* r, a_float c,
+                              int k_start, int k_stop = 0);
 
   /**
    * @brief Set an LQR tracking objective
@@ -205,8 +213,9 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal (non-inclusive) knot point index.
    */
-  ErrorCodes SetLQRCost(const a_float* Q_diag, const a_float* R_diag, const a_float* x_ref,
-                        const a_float* u_ref, int k_start, int k_stop = 0);
+  ErrorCodes SetLQRCost(int num_states, int num_inputs, const a_float* Q_diag,
+                        const a_float* R_diag, const a_float* x_ref, const a_float* u_ref,
+                        int k_start, int k_stop = 0);
 
   /**
    * @brief Set constraint function at a knot point (or range of knot points)

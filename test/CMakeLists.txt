@@ -1,3 +1,21 @@
+add_library(altro_test_utils
+  test_utils.hpp
+  test_utils.cpp
+)
+target_link_libraries(altro_test_utils
+  PUBLIC
+  gtest_main
+  altro::altro
+  fmt::fmt
+  Eigen3::Eigen
+  altro_impl
+)
+add_library(altro::test_utils ALIAS altro_test_utils)
+target_include_directories(altro_test_utils
+  INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+)
+
 add_executable(altro_api
   altro_api.cpp
 )

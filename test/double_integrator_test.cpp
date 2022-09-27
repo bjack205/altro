@@ -85,7 +85,7 @@ TEST(DoubleIntegrator, SolverUnconstrained) {
   solver.SetDimension(num_states, num_inputs, 0, LastIndex);
   solver.SetTimeStep(h, 0, LastIndex);
   solver.SetExplicitDynamics(dyn, jac, 0, LastIndex);
-  solver.SetLQRCost(Q.data(), R.data(), xf.data(), uf.data(), 0, LastIndex);
+  solver.SetLQRCost(0, 0, Q.data(), R.data(), xf.data(), uf.data(), 0, LastIndex);
   solver.SetInitialState(x0.data(), x0.size());
   solver.Initialize();
   EXPECT_TRUE(solver.IsInitialized());
@@ -178,7 +178,7 @@ TEST(DoubleIntegrator, SolveGoalConstraint) {
   solver.SetDimension(num_states, num_inputs, 0, LastIndex);
   solver.SetTimeStep(h, 0, LastIndex);
   solver.SetExplicitDynamics(dyn, jac, 0, LastIndex);
-  solver.SetLQRCost(Q.data(), R.data(), xf.data(), uf.data(), 0, LastIndex);
+  solver.SetLQRCost(0, 0, Q.data(), R.data(), xf.data(), uf.data(), 0, LastIndex);
   solver.SetInitialState(x0.data(), x0.size());
   solver.SetConstraint(goalcon, goaljac, num_states, ConstraintType::EQUALITY, "Goal constraint",
                        num_horizon, 0, nullptr);

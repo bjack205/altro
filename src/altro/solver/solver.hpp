@@ -31,6 +31,13 @@ class SolverImpl {
         alsolver_(N) {
     altro::TrajectoryXXd traj(0, 0, N);
     trajectory_ = std::make_shared<altro::TrajectoryXXd>(traj);
+
+    // Initialize knot point data
+    data_.reserve(N + 1);
+    for (int i = 0; i <= N; ++i) {
+      bool is_terminal = (i == N);
+      data_.emplace_back(is_terminal);
+    }
   }
 
   bool IsInitialized() const { return is_initialized_; }
@@ -48,6 +55,7 @@ class SolverImpl {
   // Solver
   AltroOptions opts;
   AltroStats stats;
+  std::vector<KnotPointData> data_;
 
   // Old AltroCpp
   altro::problem::Problem problem_;

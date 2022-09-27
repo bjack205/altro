@@ -101,8 +101,8 @@ TEST(AltroCppInterfaceTest, DoubleIntegrator) {
   Eigen::VectorXd Q_diag = Q.diagonal();
   Eigen::VectorXd R_diag = R.diagonal();
   x0 << 1.0, 1.0, 0.0, 0.0;
-  solver.SetLQRCost(Q_diag.data(), R_diag.data(), xf.data(), uf.data(), 0, num_segments);
-  solver.SetLQRCost(Qf_diag.data(), R_diag.data(), xf.data(), uf.data(), num_segments);
+  solver.SetLQRCost(0, 0, Q_diag.data(), R_diag.data(), xf.data(), uf.data(), 0, num_segments);
+  solver.SetLQRCost(0, 0, Qf_diag.data(), R_diag.data(), xf.data(), uf.data(), num_segments);
   //  std::shared_ptr<QuadraticCost> stage_cost;
   //  std::shared_ptr<QuadraticCost> term_cost;
   //  stage_cost = std::make_shared<QuadraticCost>(QuadraticCost::LQRCost(Q, R, xf, uf));

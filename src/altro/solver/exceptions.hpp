@@ -16,14 +16,28 @@
 
 enum class ErrorCodes {
   NoError,
+  StateDimUnknown,
+  InputDimUnknown,
+  NextStateDimUnknown,
   DimensionUnknown,
   BadIndex,
   DimensionMismatch,
   SolverNotInitialized,
   SolverAlreadyInitialized,
   NonPositive,
+  TimestepNotPositive,
+  CostFunNotSet,
+  DynamicsFunNotSet,
+  InvalidOpAtTeriminalKnotPoint,
+  MaxConstraintsExceeded,
+  InvalidConstraintDim,
+  CholeskyFailed,
   FileError,
 };
+
+void PrintErrorCode(ErrorCodes err);
+
+const char *ErrorCodeToString(ErrorCodes err);
 
 class AltroErrorException : public std::runtime_error {
  public:

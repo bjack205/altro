@@ -25,16 +25,23 @@ ALTROSolver::ALTROSolver(ALTROSolver &&other) = default;
 ALTROSolver &ALTROSolver::operator=(ALTROSolver &&other) = default;
 altro::ALTROSolver::~ALTROSolver() = default;
 
+/////////////////////////////////////////////
+// Setters
+/////////////////////////////////////////////
 ErrorCodes ALTROSolver::SetDimension(int num_states, int num_inputs, int k_start, int k_stop) {
   if (IsInitialized()) {
-    ALTRO_THROW(AltroErrorException("Cannot change the dimension once the solver has been initialized.",
-                               ErrorCodes::SolverAlreadyInitialized));
+    ALTRO_THROW(
+        AltroErrorException("Cannot change the dimension once the solver has been initialized.",
+                            ErrorCodes::SolverAlreadyInitialized));
   }
   ErrorCodes err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
   if (err != ErrorCodes::NoError) return err;
+  if (num_states <= 0) return ErrorCodes::StateDimUnknown;
   for (int k = k_start; k < k_stop; ++k) {
     solver_->nx_[k] = num_states;
     solver_->nu_[k] = num_inputs;
+    err = solver_->data_[k].SetDimension(num_states, num_inputs);
+    if (err != ErrorCodes::NoError) return err;  // TODO: reset to previous state on error?
   }
   return ErrorCodes::NoError;
 }
@@ -42,12 +49,20 @@ ErrorCodes ALTROSolver::SetDimension(int num_states, int num_inputs, int k_start
 ErrorCodes ALTROSolver::SetTimeStep(float h, int k_start, int k_stop) {
   ErrorCodes err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
   if (err != ErrorCodes::NoError) return err;
+  if (h <= 0.0f) {
+    return ErrorCodes::TimestepNotPositive;
+  }
   for (int k = k_start; k < k_stop; ++k) {
     solver_->h_[k] = h;
+    err = solver_->data_[k].SetTimestep(h);
+    if (err != ErrorCodes::NoError) return err;  // TODO: reset to previous state on error?
   }
   return ErrorCodes::NoError;
 }
 
+/////////////////////////////////////////////
+// Set Dynamics
+/////////////////////////////////////////////
 ErrorCodes ALTROSolver::SetExplicitDynamics(ExplicitDynamicsFunction dynamics_function,
                                             ExplicitDynamicsJacobian dynamics_jacobian, int k_start,
                                             int k_stop) {
@@ -65,9 +80,45 @@ ErrorCodes ALTROSolver::SetExplicitDynamics(ExplicitDynamicsFunction dynamics_fu
   return ErrorCodes::NoError;
 }
 
-ErrorCodes ALTROSolver::SetQuadraticCost(const a_float *Q, const a_float *R, const a_float *H,
-                                         const a_float *q, const a_float *r, a_float c, int k_start,
-                                         int k_stop) {
+/////////////////////////////////////////////
+// Set Cost Function
+/////////////////////////////////////////////
+ErrorCodes ALTROSolver::SetCostFunction(CostFunction cost_function, CostGradient cost_gradient,
+                                        CostHessian cost_hessian, int k_start, int k_stop) {
+  ErrorCodes err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
+  if (err != ErrorCodes::NoError) return err;
+
+  for (int k = k_stop; k < k_stop; ++k) {
+    solver_->data_[k].SetCostFunction(cost_function, cost_gradient, cost_hessian);
+  }
+
+  return ErrorCodes::NoError;
+}
+
+ErrorCodes ALTROSolver::SetDiagonalCost(int num_states, int num_inputs, const a_float *Q_diag,
+                                        const a_float *R_diag, const a_float *q, const a_float *r,
+                                        a_float c, int k_start, int k_stop) {
+  using MatrixXd = Eigen::Matrix<a_float, Eigen::Dynamic, Eigen::Dynamic>;
+  using VectorXd = Eigen::Vector<a_float, Eigen::Dynamic>;
+  ErrorCodes err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
+  err = AssertDimensionsAreSet(k_start, k_stop, "Cannot set the cost function");
+  if (err != ErrorCodes::NoError) return err;
+
+  for (int k = k_stop; k < k_stop; ++k) {
+    int n = this->GetStateDim(k);
+    int m = this->GetInputDim(k);
+    if (n != num_states) return ErrorCodes::DimensionMismatch;
+    if (k != GetHorizonLength() && m != num_inputs) return ErrorCodes::DimensionMismatch;
+
+    // New interface
+    solver_->data_[k].SetDiagonalCost(n, m, Q_diag, R_diag, q, r, c);
+  }
+  return ErrorCodes::NoError;
+}
+
+ErrorCodes ALTROSolver::SetQuadraticCost(int num_states, int num_inputs, const a_float *Q,
+                                         const a_float *R, const a_float *H, const a_float *q,
+                                         const a_float *r, a_float c, int k_start, int k_stop) {
   using MatrixXd = Eigen::Matrix<a_float, Eigen::Dynamic, Eigen::Dynamic>;
   using VectorXd = Eigen::Vector<a_float, Eigen::Dynamic>;
   ErrorCodes err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
@@ -77,11 +128,10 @@ ErrorCodes ALTROSolver::SetQuadraticCost(const a_float *Q, const a_float *R, con
   for (int k = k_start; k < k_stop; ++k) {
     int n = this->GetStateDim(k);
     int m = this->GetInputDim(k);
-    if (n <= 0 || m < 0) {
-      ALTRO_THROW(AltroErrorException(
-          fmt::format("Cannot set cost at knotpoint {}, dimensions haven't been specified yet.", k),
-          ErrorCodes::DimensionUnknown));
-    }
+    if (n != num_states) return ErrorCodes::DimensionMismatch;
+    if (k != GetHorizonLength() && m != num_inputs) return ErrorCodes::DimensionMismatch;
+
+    // AltroCpp interface
     MatrixXd Qmat = Eigen::Map<const MatrixXd>(Q, n, n);
     MatrixXd Rmat = Eigen::Map<const MatrixXd>(R, m, m);
     MatrixXd Hmat = Eigen::Map<const MatrixXd>(H, m, n);
@@ -90,13 +140,16 @@ ErrorCodes ALTROSolver::SetQuadraticCost(const a_float *Q, const a_float *R, con
     bool is_terminal = k == this->GetHorizonLength();
     cpp_interface::QuadraticCost cost(Qmat, Rmat, Hmat, qvec, rvec, c, is_terminal);
     solver_->problem_.SetCostFunction(std::make_shared<cpp_interface::QuadraticCost>(cost), k);
+
+    // New interface
+    solver_->data_[k].SetQuadraticCost(n, m, Q, R, H, q, r, c);
   }
   return ErrorCodes::NoError;
 }
 
-ErrorCodes ALTROSolver::SetLQRCost(const a_float *Q_diag, const a_float *R_diag,
-                                   const a_float *x_ref, const a_float *u_ref, int k_start,
-                                   int k_stop) {
+ErrorCodes ALTROSolver::SetLQRCost(int num_states, int num_inputs, const a_float *Q_diag,
+                                   const a_float *R_diag, const a_float *x_ref,
+                                   const a_float *u_ref, int k_start, int k_stop) {
   using MatrixXd = Eigen::Matrix<a_float, Eigen::Dynamic, Eigen::Dynamic>;
   using VectorXd = Eigen::Vector<a_float, Eigen::Dynamic>;
   ErrorCodes err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
@@ -106,6 +159,10 @@ ErrorCodes ALTROSolver::SetLQRCost(const a_float *Q_diag, const a_float *R_diag,
   for (int k = k_start; k < k_stop; ++k) {
     int n = this->GetStateDim(k);
     int m = this->GetInputDim(k);
+    if (n != num_states) return ErrorCodes::DimensionMismatch;
+    if (k != GetHorizonLength() && m != num_inputs) return ErrorCodes::DimensionMismatch;
+
+    // AltroCpp interface
     MatrixXd Qmat = Eigen::Map<const VectorXd>(Q_diag, n).asDiagonal();
     MatrixXd Rmat = Eigen::Map<const VectorXd>(R_diag, m).asDiagonal();
     VectorXd xref = Eigen::Map<const VectorXd>(x_ref, n);
@@ -114,20 +171,31 @@ ErrorCodes ALTROSolver::SetLQRCost(const a_float *Q_diag, const a_float *R_diag,
     cpp_interface::QuadraticCost cost =
         cpp_interface::QuadraticCost::LQRCost(Qmat, Rmat, xref, uref, is_terminal);
     solver_->problem_.SetCostFunction(std::make_shared<cpp_interface::QuadraticCost>(cost), k);
+
+    // New interface
+    VectorXd q = -Qmat * xref;
+    VectorXd r = -Rmat * uref;
+    a_float c = 0.5 * xref.transpose() * Qmat * xref;
+    c += 0.5 * uref.transpose() * Rmat * uref;
+    solver_->data_[k].SetDiagonalCost(n, m, Q_diag, R_diag, q.data(), r.data(), c);
   }
   return ErrorCodes::NoError;
 }
 
+/////////////////////////////////////////////
+// Other Setters
+/////////////////////////////////////////////
 ErrorCodes ALTROSolver::SetInitialState(const double *x0, int n) {
   int n0 = GetStateDim(0);
   bool first_state_dim_is_set = n0 > 0;
   if (!first_state_dim_is_set) {
     solver_->nx_[0] = n;
   } else if (n != n0) {
-    ALTRO_THROW(AltroErrorException(fmt::format("Dimension mismatch: The provided state dimension was "
-                                           "{}, but was previously set to {}.",
-                                           n, n0),
-                               ErrorCodes::DimensionMismatch));
+    ALTRO_THROW(
+        AltroErrorException(fmt::format("Dimension mismatch: The provided state dimension was "
+                                        "{}, but was previously set to {}.",
+                                        n, n0),
+                            ErrorCodes::DimensionMismatch));
   }
   VectorXd x0_vec = Eigen::Map<const VectorXd>(x0, n);
   solver_->problem_.SetInitialState(x0_vec);
@@ -204,9 +272,7 @@ ErrorCodes ALTROSolver::SetInput(const a_float *u, int m, int k_start, int k_sto
   return ErrorCodes::NoError;
 }
 
-void ALTROSolver::SetOptions(const AltroOptions &opts) {
-  solver_->opts = opts;
-}
+void ALTROSolver::SetOptions(const AltroOptions &opts) { solver_->opts = opts; }
 
 SolveStatus ALTROSolver::Solve() {
   solver_->Solve();
@@ -268,7 +334,8 @@ ErrorCodes ALTROSolver::GetInput(a_float *u, int k) const {
  ***************************************************************************************************/
 ErrorCodes ALTROSolver::AssertInitialized() const {
   if (!this->IsInitialized()) {
-    ALTRO_THROW(AltroErrorException("Solver must be initialized.", ErrorCodes::SolverNotInitialized));
+    ALTRO_THROW(
+        AltroErrorException("Solver must be initialized.", ErrorCodes::SolverNotInitialized));
   }
   return ErrorCodes::NoError;
 }
@@ -278,9 +345,9 @@ ErrorCodes ALTROSolver::AssertDimensionsAreSet(int k_start, int k_stop, std::str
     int n = GetStateDim(k);
     int m = GetInputDim(k);
     if (n <= 0 || m <= 0) {
-      ALTRO_THROW(
-          AltroErrorException(fmt::format("{}. Dimensions at knotpoint {} haven't been set.", msg, k),
-                         ErrorCodes::DimensionUnknown));
+      ALTRO_THROW(AltroErrorException(
+          fmt::format("{}. Dimensions at knotpoint {} haven't been set.", msg, k),
+          ErrorCodes::DimensionUnknown));
     }
   }
   return ErrorCodes::NoError;
@@ -335,9 +402,9 @@ ErrorCodes ALTROSolver::CheckKnotPointIndices(int k_start, int &k_stop,
 ErrorCodes ALTROSolver::AssertStateDim(int k, int n) const {
   int state_dim = GetStateDim(k);
   if (state_dim != n) {
-    ALTRO_THROW(
-        AltroErrorException(fmt::format("State dimension mismatch. Got {}, expected {}.", n, state_dim),
-                       ErrorCodes::DimensionMismatch));
+    ALTRO_THROW(AltroErrorException(
+        fmt::format("State dimension mismatch. Got {}, expected {}.", n, state_dim),
+        ErrorCodes::DimensionMismatch));
   }
   return ErrorCodes::NoError;
 }
@@ -345,9 +412,9 @@ ErrorCodes ALTROSolver::AssertStateDim(int k, int n) const {
 ErrorCodes ALTROSolver::AssertInputDim(int k, int m) const {
   int input_dim = GetInputDim(k);
   if (input_dim != m) {
-    ALTRO_THROW(
-        AltroErrorException(fmt::format("Input dimension mismatch. Got {}, expected {}.", m, input_dim),
-                       ErrorCodes::DimensionMismatch));
+    ALTRO_THROW(AltroErrorException(
+        fmt::format("Input dimension mismatch. Got {}, expected {}.", m, input_dim),
+        ErrorCodes::DimensionMismatch));
   }
   return ErrorCodes::NoError;
 }
@@ -358,7 +425,7 @@ ErrorCodes ALTROSolver::AssertTimestepsArePositive(std::string msg) const {
     if (h <= 0.0) {
       ALTRO_THROW(
           AltroErrorException(fmt::format("{}. Timestep is nonpositive at timestep {}.\n", msg, k),
-                         ErrorCodes::NonPositive));
+                              ErrorCodes::NonPositive));
     }
   }
   return ErrorCodes::NoError;

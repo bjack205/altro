@@ -18,6 +18,7 @@ add_library(altro_impl STATIC
   solver_stats.hpp
 
   exceptions.hpp
+  exceptions.cpp
 )
 target_link_libraries(altro_impl
   PUBLIC

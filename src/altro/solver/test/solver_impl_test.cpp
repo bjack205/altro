@@ -10,6 +10,9 @@ namespace altro {
 TEST(SolverImpl, Constructor) {
   int N = 10;
   SolverImpl solver(N);
+  EXPECT_FALSE(solver.data_.begin()->IsTerminalKnotPoint());
+  EXPECT_TRUE((solver.data_.end() - 1)->IsTerminalKnotPoint());
 }
+
 
 }  // namespace altro
