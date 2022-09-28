@@ -74,6 +74,19 @@ ErrorCodes SolverImpl::BackwardPass() {
   return ErrorCodes::NoError;
 }
 
+ErrorCodes SolverImpl::LinearRollout() {
+  int N = horizon_length_;
+  data_[0].x_ = initial_state_;
+  for (int k = 0; k < N; ++k) {
+    data_[k].y_ = data_[k].P_ * data_[k].x_ + data_[k].p_;
+    data_[k].u_ = -data_[k].K_ * data_[k].x_ + data_[k].d_;
+    data_[k+1].x_ = data_[k].A_ * data_[k].x_ + data_[k].B_ * data_[k].u_ + data_[k].f_;
+  }
+  data_[N].y_ = data_[N].P_ * data_[N].x_ + data_[N].p_;
+
+  return ErrorCodes::NoError;
+}
+
 a_float SolverImpl::CalcObjective() {
   a_float J = 0;
   for (int k = 0; k <= horizon_length_; ++k) {

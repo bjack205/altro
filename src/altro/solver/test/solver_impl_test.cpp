@@ -28,6 +28,10 @@ TEST(SolverImpl, TVLQR_Test) {
   xeq << 1, 2, 0, 0;
   ueq << 0,0;
 
+  // Initial state
+  Vector x0(n);
+  x0 << 10.5, -20.5, -4, 5;
+
   // Calculate A,B,f
   Matrix jac(n, n + m);
   Vector f = Vector::Zero(n);
@@ -52,6 +56,7 @@ TEST(SolverImpl, TVLQR_Test) {
   // Initialize solver
   ErrorCodes err;
   SolverImpl solver(N);
+  solver.initial_state_ = x0;
   for (int k = 0; k < N; ++k) {
     err = solver.data_[k].SetDimension(n, m);
     EXPECT_EQ(err, ErrorCodes::NoError);
@@ -70,6 +75,7 @@ TEST(SolverImpl, TVLQR_Test) {
 
     err = solver.data_[k].Initialize();
     EXPECT_EQ(err, ErrorCodes::NoError);
+    EXPECT_TRUE(solver.data_[k].IsInitialized());
   }
   err = solver.data_[N].SetDimension(n, 0);
   EXPECT_EQ(err, ErrorCodes::NoError);
@@ -81,24 +87,10 @@ TEST(SolverImpl, TVLQR_Test) {
   EXPECT_EQ(err, ErrorCodes::NoError);
 
   EXPECT_TRUE(solver.data_[N].CostFunctionIsQuadratic());
-  EXPECT_TRUE(solver.data_[N].DynamicsAreLinear());
   EXPECT_TRUE(solver.data_[N].IsInitialized());
 
   // Calculate backward pass
   solver.BackwardPass();
-//  fmt::print("K0:\n{}\n", solver.data_[0].K_);
-  fmt::print("pN:\n{}\n", solver.data_[N].p_.transpose().eval());
-  fmt::print("lxN:\n{}\n", solver.data_[N].lx_.transpose().eval());
-  fmt::print("Qx:\n{}\n", solver.data_[N-1].Qx_.transpose().eval());
-  fmt::print("Qu:\n{}\n", solver.data_[N-1].Qu_.transpose().eval());
-  fmt::print("d:\n{}\n", solver.data_[N-1].d_.transpose().eval());
-
-  fmt::print("d0: [ ");
-  for (int i = 0; i < m; ++i) {
-    fmt::print("{:.12} ", solver.data_[0].d_[i]);
-  }
-  fmt::print("]\n");
-
   Matrix K0_expected(m,n);
   Vector d0_expected(m);
   // clang-format off
@@ -108,14 +100,26 @@ TEST(SolverImpl, TVLQR_Test) {
   // clang-format on
 
   // not sure why they're not matching to machine precision
-//  double K_err = (solver.data_[0].K_ - K0_expected).norm();
-//  double d_err = (solver.data_[0].d_ - d0_expected).norm();
-//  fmt::print("K error {}\n", K_err);
-//  fmt::print("d error {}\n", d_err);
+  double K_err = (solver.data_[0].K_ - K0_expected).lpNorm<Eigen::Infinity>();
+  double d_err = (solver.data_[0].d_ - d0_expected).lpNorm<Eigen::Infinity>();
+  fmt::print("K error {}\n", K_err);
+  fmt::print("d error {}\n", d_err);
 
   EXPECT_LT((solver.data_[0].K_ - K0_expected).norm(), 1e-6);
   EXPECT_LT((solver.data_[0].d_ - d0_expected).norm(), 1e-6);
 
+  // Linear rollout
+  solver.LinearRollout();
+  Vector xN(n);
+  Vector yN(n);
+  xN << 20.165445369740308, -0.13732391651279308, -2.3724421496097037, 2.3113121303468707;
+  yN << 2218.2089906714345, -15.09563081640724, -260.9586364570674, 254.2543343381558;
+  double x_err = (xN - solver.data_[N].x_).lpNorm<Eigen::Infinity>();
+  double y_err = (yN - solver.data_[N].y_).lpNorm<Eigen::Infinity>();
+  fmt::print("x error {}\n", x_err);
+  fmt::print("y error {}\n", y_err);
+  EXPECT_LT(x_err, 1e-6);
+  EXPECT_LT(y_err, 1e-5);
 }
 
 

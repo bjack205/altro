@@ -56,6 +56,7 @@ class SolverImpl {
   std::vector<int> nx_;   // number of states
   std::vector<int> nu_;   // number of inputs
   std::vector<float> h_;  // time steps
+  Vector initial_state_;
 
   // Solver
   AltroOptions opts;

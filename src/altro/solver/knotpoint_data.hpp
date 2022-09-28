@@ -130,9 +130,11 @@ class KnotPointData {
   // States and controls
   Vector x;  // state
   Vector u;  // input
+  Vector y;  // dynamics dual
 
   Vector x_;  // temp state
   Vector u_;  // temp input
+  Vector y_;  // temp dynamics dual
 
   Matrix dynamics_jac_;
   Vector dynamics_val_;
