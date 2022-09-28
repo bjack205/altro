@@ -33,6 +33,7 @@ enum class ErrorCodes {
   InvalidConstraintDim,
   CholeskyFailed,
   OpOnlyValidAtTerminalKnotPoint,
+  InvalidPointer,
   FileError,
 };
 

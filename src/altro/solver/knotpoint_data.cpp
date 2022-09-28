@@ -120,7 +120,7 @@ ErrorCodes KnotPointData::SetLinearDynamics(int n2, int n, int m, const altro::a
 
   A_ = Eigen::Map<const Matrix>(A, n2, n);
   B_ = Eigen::Map<const Matrix>(B, n2, m);
-  f_ = Eigen::Map<const Vector>(f, n2);
+  affine_term_ = Eigen::Map<const Vector>(f, n2);
 
   dynamics_is_set_ = true;
   dynamics_are_linear_ = true;
@@ -191,6 +191,7 @@ ErrorCodes KnotPointData::Initialize() {
   x_ = Vector::Zero(n);
   u_ = Vector::Zero(m);
 
+  f_ = Vector::Zero(n2);
   dynamics_jac_ = Matrix::Zero(n2, n + m);
   dynamics_val_ = Vector::Zero(n2);
   dynamics_dual_ = Vector::Zero(n2);
@@ -243,6 +244,9 @@ ErrorCodes KnotPointData::Initialize() {
   P_ = Matrix::Zero(n, n);
   p_ = Vector::Zero(n);
 
+  dx_da_ = Vector::Zero(n);
+  du_da_ = Vector::Zero(m);
+
   // Calculate Hessian if it's constant
   // Note: it's only truly constant if it's unconstrained
   if (CostFunctionIsQuadratic()) {
@@ -257,6 +261,7 @@ ErrorCodes KnotPointData::Initialize() {
   if (!IsTerminalKnotPoint() && CostFunctionIsQuadratic() && DynamicsAreLinear()) {
     lx_ = q_;
     lu_ = r_;
+    f_ = affine_term_;
   }
 
   is_initialized_ = true;
@@ -292,6 +297,8 @@ ErrorCodes KnotPointData::CalcDynamicsExpansion() {
     dynamics_jacobian_(dynamics_jac_.data(), x_.data(), u_.data(), h);
     A_ = dynamics_jac_.leftCols(n);
     B_ = dynamics_jac_.rightCols(m);
+  } else {
+    f_.setZero();
   }
   return ErrorCodes::NoError;
 }
@@ -430,5 +437,26 @@ void KnotPointData::CalcOriginalCostHessian() {
   }
 }
 
+ErrorCodes KnotPointData::CalcDynamics(a_float *xnext) {
+  if (xnext == nullptr) return ErrorCodes::InvalidPointer;
+  if (DynamicsAreLinear()) {
+    Eigen::Map<Vector> xn(xnext, num_next_state_);
+    xn = A_ * x_ + B_ * u_ + affine_term_;
+  } else {
+    dynamics_function_(xnext, x_.data(), u_.data(), GetTimeStep());
+  }
+  return ErrorCodes::NoError;
+}
 
+a_float KnotPointData::CalcCost() {
+  a_float cost = CalcOriginalCost();
+  // TODO: add constraint costs
+  return cost;
+}
+
+ErrorCodes KnotPointData::CalcCostGradient() {
+  CalcOriginalCostGradient();
+  // TODO: add constraint cost gradient
+  return ErrorCodes::NoError;
+}
 }  // namespace altro

@@ -51,7 +51,9 @@ class KnotPointData {
 
   // Calculation methods
   a_float CalcCost();
+  ErrorCodes CalcCostGradient();
   ErrorCodes CalcCostExpansion(bool force_update);
+  ErrorCodes CalcDynamics(a_float *xnext);
   ErrorCodes CalcDynamicsExpansion();
   ErrorCodes CalcActionValueExpansion(const KnotPointData &next);
   ErrorCodes CalcGains();
@@ -101,8 +103,9 @@ class KnotPointData {
   Vector r_;
   a_float c_;
 
-  // Dynamic
+  // Dynamics
   bool dynamics_are_linear_ = false;
+  Vector affine_term_;
   ExplicitDynamicsFunction dynamics_function_;
   ExplicitDynamicsJacobian dynamics_jacobian_;
 
@@ -132,6 +135,7 @@ class KnotPointData {
   Vector u;  // input
   Vector y;  // dynamics dual
 
+  // All functions are calculated using these values
   Vector x_;  // temp state
   Vector u_;  // temp input
   Vector y_;  // temp dynamics dual
@@ -180,6 +184,10 @@ class KnotPointData {
   Matrix P_;
   Vector p_;
   a_float delta_V_[2];
+
+  // Forward pass
+  Vector dx_da_;   // gradient of x wrt alpha
+  Vector du_da_;   // gradient of u wrt alpha
 
  private:
   a_float CalcOriginalCost();

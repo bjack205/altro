@@ -46,8 +46,13 @@ class SolverImpl {
   a_float CalcObjective();
 
   ErrorCodes BackwardPass();
+  ErrorCodes MeritFunction(a_float alpha, a_float *phi, a_float *dphi);
+  ErrorCodes CopyTrajectory();
+
   ErrorCodes LinearRollout();
-  ErrorCodes CalcDuals();
+  a_float Stationarity();
+  ErrorCodes CalcCostGradient();
+  ErrorCodes CalcExpansions();
 
   void Solve();
 

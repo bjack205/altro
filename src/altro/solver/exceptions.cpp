@@ -66,6 +66,9 @@ const char* ErrorCodeToString(ErrorCodes err) {
     case ErrorCodes::OpOnlyValidAtTerminalKnotPoint:
       return "operation only valid at terminal knot point";
       break;
+    case ErrorCodes::InvalidPointer:
+      return "Invalid pointer";
+      break;
   }
   return nullptr;
 }
