@@ -66,29 +66,29 @@ TEST(KnotPointDataTests, CalcCostExpansion) {
   KnotPointData data(is_terminal);
   ErrorCodes res;
 
-  res = data.Instantiate();
+  res = data.Initialize();
   EXPECT_EQ(res, ErrorCodes::StateDimUnknown);
   res = data.SetDimension(n, m);
   EXPECT_EQ(res, ErrorCodes::NoError);
 
-  res = data.Instantiate();
+  res = data.Initialize();
   EXPECT_EQ(res, ErrorCodes::NextStateDimUnknown);
   data.SetNextStateDimension(n);
 
-  res = data.Instantiate();
+  res = data.Initialize();
   EXPECT_EQ(res, ErrorCodes::TimestepNotPositive);
   data.SetTimestep(h);
 
-  res = data.Instantiate();
+  res = data.Initialize();
   EXPECT_EQ(res, ErrorCodes::DynamicsFunNotSet);
   data.SetLinearDynamics(n, n, m, A.data(), B.data(), f.data());
 
-  res = data.Instantiate();
+  res = data.Initialize();
   EXPECT_EQ(res, ErrorCodes::CostFunNotSet);
   data.SetDiagonalCost(n, m, Qd.data(), Rd.data(), q.data(), r.data(), c);
 
 
-  res = data.Instantiate();
+  res = data.Initialize();
   EXPECT_EQ(res, ErrorCodes::NoError);
 
   EXPECT_EQ(data.K_.rows(), m);
@@ -112,14 +112,14 @@ TEST(KnotPointDataTests, CalcCostExpansion) {
   EXPECT_TRUE(data.A_.isApprox(A));
   EXPECT_TRUE(data.B_.isApprox(B));
 
-  // Instantiate the terminal knot point
+  // Initialize the terminal knot point
   KnotPointData term(true);
   res = term.SetDimension(n, 0);
   EXPECT_EQ(res, ErrorCodes::NoError);
-  res = term.Instantiate();
+  res = term.Initialize();
   EXPECT_EQ(res, ErrorCodes::CostFunNotSet);
   term.SetDiagonalCost(n, 0, Qd.data(), nullptr, q.data(), nullptr, c);
-  res = term.Instantiate();
+  res = term.Initialize();
   EXPECT_EQ(res, ErrorCodes::NoError);
 
   // Calc terminal cost-to-go

@@ -10,7 +10,8 @@ namespace altro {
 /////////////////////////////////////////////
 // Constructor
 /////////////////////////////////////////////
-KnotPointData::KnotPointData(bool is_teriminal) : is_terminal_(is_teriminal) {}
+KnotPointData::KnotPointData(bool is_terminal) : is_terminal_(is_terminal) {}
+
 
 /////////////////////////////////////////////
 // Setters
@@ -161,7 +162,7 @@ ErrorCodes KnotPointData::SetConstraint(ConstraintFunction constraint_function,
 /////////////////////////////////////////////
 // Initialization
 /////////////////////////////////////////////
-ErrorCodes KnotPointData::Instantiate() {
+ErrorCodes KnotPointData::Initialize() {
   const int n2 = GetNextStateDim();
   const int n = GetStateDim();
   const int m = GetInputDim();
@@ -248,6 +249,16 @@ ErrorCodes KnotPointData::Instantiate() {
     CalcOriginalCostHessian();
   }
 
+  // If data is linear-quadratic, assume we're solving a TVLQR problem
+  // Set the gradient equal to the linear cost
+  if (IsTerminalKnotPoint() && CostFunctionIsQuadratic()) {
+    lx_ = q_;
+  }
+  if (!IsTerminalKnotPoint() && CostFunctionIsQuadratic() && DynamicsAreLinear()) {
+    lx_ = q_;
+    lu_ = r_;
+  }
+
   is_initialized_ = true;
   return ErrorCodes::NoError;
 }
@@ -315,6 +326,7 @@ ErrorCodes KnotPointData::CalcCostToGo() {
   if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOpAtTeriminalKnotPoint;
   P_ = Qxx_ + K_.transpose() * Quu_ * K_ - K_.transpose() * Qux_ - Qux_.transpose() * K_;
   p_ = Qx_ - K_.transpose() * Quu_ * d_ - K_.transpose() * Qu_ + Qux_.transpose() * d_;
+  P_ = 0.5 * (P_ + P_.transpose());
   delta_V_[0] = d_.dot(Qu_);
   delta_V_[1] = 0.5 * d_.dot(Quu_ * d_);
   return ErrorCodes::NoError;
@@ -417,5 +429,6 @@ void KnotPointData::CalcOriginalCostHessian() {
     }
   }
 }
+
 
 }  // namespace altro

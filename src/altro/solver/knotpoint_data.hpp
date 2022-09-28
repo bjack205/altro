@@ -17,7 +17,14 @@ class KnotPointData {
   enum class CostFunType { Generic, Quadratic, Diagonal };
 
  public:
-  KnotPointData(bool is_teriminal);
+  explicit KnotPointData(bool is_terminal);
+
+  // Prohibit copying
+  KnotPointData(const KnotPointData& data) = delete;
+  KnotPointData operator=(const KnotPointData& data) = delete;
+
+  // Allow moving
+  KnotPointData(KnotPointData&& other) = default;
 
   // Setters
   ErrorCodes SetDimension(int num_states, int num_inputs);
@@ -40,9 +47,10 @@ class KnotPointData {
                            ConstraintJacobian constraint_jacobian, int dim,
                            ConstraintType constraint_type, std::string label);
 
-  ErrorCodes Instantiate();
+  ErrorCodes Initialize();
 
   // Calculation methods
+  a_float CalcCost();
   ErrorCodes CalcCostExpansion(bool force_update);
   ErrorCodes CalcDynamicsExpansion();
   ErrorCodes CalcActionValueExpansion(const KnotPointData &next);

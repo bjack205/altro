@@ -62,4 +62,25 @@ a_float SolverImpl::CalcCost() {
   return alsolver_.GetiLQRSolver().Cost();
 }
 
+ErrorCodes SolverImpl::BackwardPass() {
+  int N = horizon_length_;
+
+  data_[N].CalcTerminalCostToGo();
+  for (int k = N - 1; k >= 0; --k) {
+    data_[k].CalcActionValueExpansion(data_[k+1]);
+    data_[k].CalcGains();
+    data_[k].CalcCostToGo();
+  }
+  return ErrorCodes::NoError;
+}
+
+a_float SolverImpl::CalcObjective() {
+  a_float J = 0;
+  for (int k = 0; k <= horizon_length_; ++k) {
+    if (k < horizon_length_) {
+    }
+  }
+  return 0;
+}
+
 }  // namespace altro

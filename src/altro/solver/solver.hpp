@@ -33,7 +33,6 @@ class SolverImpl {
     trajectory_ = std::make_shared<altro::TrajectoryXXd>(traj);
 
     // Initialize knot point data
-    data_.reserve(N + 1);
     for (int i = 0; i <= N; ++i) {
       bool is_terminal = (i == N);
       data_.emplace_back(is_terminal);
@@ -44,6 +43,12 @@ class SolverImpl {
 
   bool Initialize();
   a_float CalcCost();
+  a_float CalcObjective();
+
+  ErrorCodes BackwardPass();
+  ErrorCodes LinearRollout();
+  ErrorCodes CalcDuals();
+
   void Solve();
 
   // Problem definition
