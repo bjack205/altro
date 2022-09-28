@@ -32,6 +32,7 @@ enum class ErrorCodes {
   MaxConstraintsExceeded,
   InvalidConstraintDim,
   CholeskyFailed,
+  OpOnlyValidAtTerminalKnotPoint,
   FileError,
 };
 

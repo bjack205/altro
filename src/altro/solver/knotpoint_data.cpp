@@ -78,16 +78,22 @@ ErrorCodes KnotPointData::SetDiagonalCost(int n, int m, const a_float *Qdiag, co
                                           const a_float *q, const a_float *r, a_float c) {
   if (num_states_ > 0 && num_states_ != n) return ErrorCodes::DimensionMismatch;
   if (num_inputs_ > 0 && num_inputs_ != m) return ErrorCodes::DimensionMismatch;
+
+  // Note: Assigns the first elements of the matrix to be the diagonal (to keep the same data size
+  //       with a quadratic cost
   Q_ = Vector::Zero(n * n);
-  R_ = Vector::Zero(m * m);
+  Q_.head(n) = Eigen::Map<const Vector>(Qdiag, n);
+
   H_ = Matrix ::Zero(m, n);
   q_ = Eigen::Map<const Vector>(q, n);
-  r_ = Eigen::Map<const Vector>(r, m);
   c_ = c;
 
-  // Assign the diagonal to the first elements of the vector
-  Q_.head(n) = Eigen::Map<const Vector>(Qdiag, n);
-  R_.head(m) = Eigen::Map<const Vector>(Qdiag, m);
+
+  if (!IsTerminalKnotPoint()) {
+    R_ = Vector::Zero(m * m);
+    R_.head(m) = Eigen::Map<const Vector>(Rdiag, m);
+    r_ = Eigen::Map<const Vector>(r, m);
+  }
 
   cost_fun_is_set_ = true;
   cost_fun_type_ = CostFunType::Diagonal;
@@ -173,9 +179,9 @@ ErrorCodes KnotPointData::Instantiate() {
     if (!inputdim_is_set) return ErrorCodes::InputDimUnknown;
     if (!next_state_dim_is_set) return ErrorCodes::NextStateDimUnknown;
     if (!timestep_is_set) return ErrorCodes::TimestepNotPositive;
+    if (!dynamics_is_set_) return ErrorCodes::DynamicsFunNotSet;
   }
   if (!cost_fun_is_set_) return ErrorCodes::CostFunNotSet;
-  if (!dynamics_is_set_) return ErrorCodes::DynamicsFunNotSet;
 
   // General data
   x = Vector::Zero(n);
@@ -282,9 +288,9 @@ ErrorCodes KnotPointData::CalcDynamicsExpansion() {
 ErrorCodes KnotPointData::CalcActionValueExpansion(const altro::KnotPointData &next) {
   if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOpAtTeriminalKnotPoint;
   // TODO: allocate storage for the temporary variables here
-  Qxx_ = lxx_ + A_.transpose() * next.P_ * A_.transpose();
-  Quu_ = luu_ + B_.transpose() * next.P_ * B_.transpose();
-  Qux_ = lux_ + B_.transpose() * next.P_ * A_.transpose();
+  Qxx_ = lxx_ + A_.transpose() * next.P_ * A_;
+  Quu_ = luu_ + B_.transpose() * next.P_ * B_;
+  Qux_ = lux_ + B_.transpose() * next.P_ * A_;
   Qx_ = lx_ + A_.transpose() * (next.P_ * f_ + next.p_);
   Qu_ = lu_ + B_.transpose() * (next.P_ * f_ + next.p_);
   return ErrorCodes::NoError;
@@ -296,6 +302,7 @@ ErrorCodes KnotPointData::CalcGains() {
   // TODO: combine these solves into 1
   K_ = Qux_;
   d_ = Qu_;
+  d_ *= -1;
   Quu_fact.solveInPlace(K_);
   Quu_fact.solveInPlace(d_);
   if (Quu_fact.info() != Eigen::Success) {
@@ -306,10 +313,17 @@ ErrorCodes KnotPointData::CalcGains() {
 
 ErrorCodes KnotPointData::CalcCostToGo() {
   if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOpAtTeriminalKnotPoint;
-  P_ = Qxx_ + K_.transpose() * Quu_ * K_ + K_.transpose() * Qux_ + Qux_.transpose() * K_;
-  p_ = Qx_ + K_.transpose() * Quu_ * d_ * K_.transpose() * Qu_ + Qux_.transpose() * d_;
+  P_ = Qxx_ + K_.transpose() * Quu_ * K_ - K_.transpose() * Qux_ - Qux_.transpose() * K_;
+  p_ = Qx_ - K_.transpose() * Quu_ * d_ - K_.transpose() * Qu_ + Qux_.transpose() * d_;
   delta_V_[0] = d_.dot(Qu_);
   delta_V_[1] = 0.5 * d_.dot(Quu_ * d_);
+  return ErrorCodes::NoError;
+}
+
+ErrorCodes KnotPointData::CalcTerminalCostToGo() {
+  if (!IsTerminalKnotPoint()) return ErrorCodes::OpOnlyValidAtTerminalKnotPoint;
+  P_ = lxx_;
+  p_ = lx_;
   return ErrorCodes::NoError;
 }
 

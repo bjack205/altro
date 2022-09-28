@@ -63,6 +63,9 @@ const char* ErrorCodeToString(ErrorCodes err) {
     case ErrorCodes::FileError:
       return "file error";
       break;
+    case ErrorCodes::OpOnlyValidAtTerminalKnotPoint:
+      return "operation only valid at terminal knot point";
+      break;
   }
   return nullptr;
 }

@@ -6,6 +6,7 @@
 #pragma once
 
 #include "Eigen/Dense"
+#include "altro/utils/formatting.hpp"
 
 void discrete_double_integrator_dynamics(double *xnext, const double *x, const double *u, float h,
                                          int dim);
