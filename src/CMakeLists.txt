@@ -1,3 +1,4 @@
+add_subdirectory(linesearch)
 add_subdirectory(altrocpp_interface)
 add_subdirectory(altro)
 
