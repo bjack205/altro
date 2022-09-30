@@ -47,6 +47,7 @@ class SolverImpl {
 
   ErrorCodes BackwardPass();
   ErrorCodes MeritFunction(a_float alpha, a_float *phi, a_float *dphi);
+  ErrorCodes ForwardPass();
   ErrorCodes CopyTrajectory();
 
   ErrorCodes LinearRollout();

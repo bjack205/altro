@@ -21,7 +21,7 @@ add_library(linesearch_linesearch
   linesearch.c
   cubicspline.c
   cubicspline.h
-)
+  linesearch.cpp linesearch.hpp)
 target_include_directories(linesearch_linesearch
   INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
