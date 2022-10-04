@@ -222,7 +222,7 @@ double zoom(CubicLineSearch* const ls, CubicLineSearchFuns* funs, double alo, do
     }
 
     phi = funs->merit_fun(alpha, funs->merit_fun_thunk);
-    dphi = funs->merit_fun_derivative(alpha, funs->merit_fun_derivative);
+    dphi = funs->merit_fun_derivative(alpha, funs->merit_fun_derivative_thunk);
     bool sufficient_decrease = phi <= phi0 + c1 * alpha * dphi0;
     bool higher_than_lo = phi > phi_lo;
     bool curvature = fabs(dphi) <= -c2 * dphi0;

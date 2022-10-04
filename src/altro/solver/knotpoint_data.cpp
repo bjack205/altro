@@ -311,48 +311,48 @@ ErrorCodes KnotPointData::CalcDynamicsExpansion() {
   return ErrorCodes::NoError;
 }
 
-ErrorCodes KnotPointData::CalcActionValueExpansion(const altro::KnotPointData &next) {
-  if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOpAtTeriminalKnotPoint;
-  // TODO: allocate storage for the temporary variables here
-  Qxx_ = lxx_ + A_.transpose() * next.P_ * A_;
-  Quu_ = luu_ + B_.transpose() * next.P_ * B_;
-  Qux_ = lux_ + B_.transpose() * next.P_ * A_;
-  Qx_ = lx_ + A_.transpose() * (next.P_ * f_ + next.p_);
-  Qu_ = lu_ + B_.transpose() * (next.P_ * f_ + next.p_);
-  return ErrorCodes::NoError;
-}
-
-ErrorCodes KnotPointData::CalcGains() {
-  if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOpAtTeriminalKnotPoint;
-  Quu_fact.compute(Quu_);
-  // TODO: combine these solves into 1
-  K_ = Qux_;
-  d_ = Qu_;
-  d_ *= -1;
-  Quu_fact.solveInPlace(K_);
-  Quu_fact.solveInPlace(d_);
-  if (Quu_fact.info() != Eigen::Success) {
-    return ErrorCodes::CholeskyFailed;
-  }
-  return ErrorCodes::NoError;
-}
-
-ErrorCodes KnotPointData::CalcCostToGo() {
-  if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOpAtTeriminalKnotPoint;
-  P_ = Qxx_ + K_.transpose() * Quu_ * K_ - K_.transpose() * Qux_ - Qux_.transpose() * K_;
-  p_ = Qx_ - K_.transpose() * Quu_ * d_ - K_.transpose() * Qu_ + Qux_.transpose() * d_;
-  P_ = 0.5 * (P_ + P_.transpose());
-  delta_V_[0] = d_.dot(Qu_);
-  delta_V_[1] = 0.5 * d_.dot(Quu_ * d_);
-  return ErrorCodes::NoError;
-}
-
-ErrorCodes KnotPointData::CalcTerminalCostToGo() {
-  if (!IsTerminalKnotPoint()) return ErrorCodes::OpOnlyValidAtTerminalKnotPoint;
-  P_ = lxx_;
-  p_ = lx_;
-  return ErrorCodes::NoError;
-}
+//ErrorCodes KnotPointData::CalcActionValueExpansion(const altro::KnotPointData &next) {
+//  if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOpAtTeriminalKnotPoint;
+//  // TODO: allocate storage for the temporary variables here
+//  Qxx_ = lxx_ + A_.transpose() * next.P_ * A_;
+//  Quu_ = luu_ + B_.transpose() * next.P_ * B_;
+//  Qux_ = lux_ + B_.transpose() * next.P_ * A_;
+//  Qx_ = lx_ + A_.transpose() * (next.P_ * f_ + next.p_);
+//  Qu_ = lu_ + B_.transpose() * (next.P_ * f_ + next.p_);
+//  return ErrorCodes::NoError;
+//}
+//
+//ErrorCodes KnotPointData::CalcGains() {
+//  if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOpAtTeriminalKnotPoint;
+//  Quu_fact.compute(Quu_);
+//  // TODO: combine these solves into 1
+//  K_ = Qux_;
+//  d_ = Qu_;
+//  d_ *= -1;
+//  Quu_fact.solveInPlace(K_);
+//  Quu_fact.solveInPlace(d_);
+//  if (Quu_fact.info() != Eigen::Success) {
+//    return ErrorCodes::CholeskyFailed;
+//  }
+//  return ErrorCodes::NoError;
+//}
+//
+//ErrorCodes KnotPointData::CalcCostToGo() {
+//  if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOpAtTeriminalKnotPoint;
+//  P_ = Qxx_ + K_.transpose() * Quu_ * K_ - K_.transpose() * Qux_ - Qux_.transpose() * K_;
+//  p_ = Qx_ - K_.transpose() * Quu_ * d_ - K_.transpose() * Qu_ + Qux_.transpose() * d_;
+//  P_ = 0.5 * (P_ + P_.transpose());
+//  delta_V_[0] = d_.dot(Qu_);
+//  delta_V_[1] = 0.5 * d_.dot(Quu_ * d_);
+//  return ErrorCodes::NoError;
+//}
+//
+//ErrorCodes KnotPointData::CalcTerminalCostToGo() {
+//  if (!IsTerminalKnotPoint()) return ErrorCodes::OpOnlyValidAtTerminalKnotPoint;
+//  P_ = lxx_;
+//  p_ = lx_;
+//  return ErrorCodes::NoError;
+//}
 
 
 a_float KnotPointData::CalcOriginalCost() {

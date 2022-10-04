@@ -113,6 +113,7 @@ TEST_F(SolverImplTest, TVLQR_Test) {
 
   // Calculate backward pass
   solver.BackwardPass();
+  solver.BackwardPass();
   Matrix K0_expected(m,n);
   Vector d0_expected(m);
   // clang-format off

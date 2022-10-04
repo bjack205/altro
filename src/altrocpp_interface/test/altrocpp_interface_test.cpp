@@ -30,6 +30,8 @@ auto dyn = [](double *xnext, const double *x, const double *u, float h) -> void 
 };
 
 auto jac = [](double *jac, const double *x, const double *u, float h) -> void {
+  (void)x;
+  (void)u;
   Eigen::Map<Eigen::MatrixXd> J(jac, 2 * dim, 3 * dim);
   J.setZero();
   double b = h * h / 2;

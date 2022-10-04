@@ -16,7 +16,9 @@ auto dyn = [](double *xnext, const double *x, const double *u, float h) -> void 
   return;
 };
 
-auto jac = [](double *jac, const double *x, const double *, float h) -> void {
+auto jac = [](double *jac, const double *x, const double *u, float h) -> void {
+  (void)x;
+  (void)u;
   Eigen::Map<Eigen::MatrixXd> J(jac, 2 * dim, 3 * dim);
   J.setZero();
   double b = h * h / 2;
@@ -110,6 +112,7 @@ TEST(DoubleIntegrator, SolverUnconstrained) {
   opts.verbose = Verbosity::Inner;
   solver.SetOptions(opts);
   SolveStatus status = solver.Solve();
+  EXPECT_EQ(status, SolveStatus::Success);
 
   // Print last state
   double cost_final = solver.CalcCost();
@@ -205,11 +208,13 @@ TEST(DoubleIntegrator, SolveGoalConstraint) {
   opts.verbose = Verbosity::Inner;
   solver.SetOptions(opts);
   SolveStatus status = solver.Solve();
+  EXPECT_EQ(status, SolveStatus::Success);
 
   // Print last state
   double cost_final = solver.CalcCost();
   fmt::print("Final cost = {}\n", cost_final);
 
+  // Print Trajectory
 //  Eigen::VectorXd xk(num_states);
 //  Eigen::VectorXd uk(num_inputs);
 //  for (int k = 0; k <= num_horizon; ++k) {

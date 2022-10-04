@@ -55,10 +55,10 @@ class KnotPointData {
   ErrorCodes CalcCostExpansion(bool force_update);
   ErrorCodes CalcDynamics(a_float *xnext);
   ErrorCodes CalcDynamicsExpansion();
-  ErrorCodes CalcActionValueExpansion(const KnotPointData &next);
-  ErrorCodes CalcGains();
-  ErrorCodes CalcCostToGo();
-  ErrorCodes CalcTerminalCostToGo();
+//  ErrorCodes CalcActionValueExpansion(const KnotPointData &next);
+//  ErrorCodes CalcGains();
+//  ErrorCodes CalcCostToGo();
+//  ErrorCodes CalcTerminalCostToGo();
 
   // Getters
   int GetNextStateDim() const { return num_next_state_; }

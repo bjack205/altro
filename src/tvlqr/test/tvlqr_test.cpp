@@ -63,7 +63,6 @@ TEST(TVLQR_Tests, DoubleIntegrator) {
   Matrix Qf = Qfd.asDiagonal();
   Vector qk = Vector::Constant(n, 0.01);
   Vector rk = Vector::Constant(m, 0.001);
-  float c = 0.0;
 
   /////////////////////////////////////////////
   // Memory initialization

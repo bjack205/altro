@@ -129,31 +129,31 @@ TEST(KnotPointDataTests, CalcCostExpansion) {
   EXPECT_TRUE(term.lxx_.isApprox(Q));
   EXPECT_TRUE(term.lx_.isApprox(Q * x + q));
 
-  res = term.CalcTerminalCostToGo();
-  EXPECT_EQ(res, ErrorCodes::NoError);
-  EXPECT_TRUE(term.P_.isApprox(Q));
-  EXPECT_TRUE(term.p_.isApprox(Q * x + q));
-
-  // Calc Action-Value expansion
-  res = data.CalcActionValueExpansion(term);
-  EXPECT_EQ(res, ErrorCodes::NoError);
-  EXPECT_TRUE(data.Qxx_.isApprox(Q + A.transpose() * Q * A));
-  EXPECT_TRUE(data.Quu_.isApprox(R + B.transpose() * Q * B));
-  EXPECT_TRUE(data.Qux_.isApprox(B.transpose() * Q * A));
-  EXPECT_TRUE(data.Qx_.isApprox(Q * x + q + A.transpose() * (Q * x + q)));
-  EXPECT_TRUE(data.Qu_.isApprox(R * u + r + B.transpose() * (Q * x + q)));
-
-  // Calc Gains
-  res = data.CalcGains();
-  EXPECT_EQ(res, ErrorCodes::NoError);
-  EXPECT_TRUE(data.d_.isApprox(data.Quu_.ldlt().solve(-data.Qu_)));
-  EXPECT_TRUE(data.K_.isApprox(data.Quu_.ldlt().solve(data.Qux_)));
-
-  // Calc cost-to-go
-  res = data.CalcCostToGo();
-  Matrix& P = Q;
-  Matrix P_ = Q + A.transpose() * P * A - A.transpose() * P * B * (R + B.transpose() * P * B).llt().solve(B.transpose() * P * A);
-  EXPECT_TRUE(P_.isApprox(data.P_));
+//  res = term.CalcTerminalCostToGo();
+//  EXPECT_EQ(res, ErrorCodes::NoError);
+//  EXPECT_TRUE(term.P_.isApprox(Q));
+//  EXPECT_TRUE(term.p_.isApprox(Q * x + q));
+//
+//  // Calc Action-Value expansion
+//  res = data.CalcActionValueExpansion(term);
+//  EXPECT_EQ(res, ErrorCodes::NoError);
+//  EXPECT_TRUE(data.Qxx_.isApprox(Q + A.transpose() * Q * A));
+//  EXPECT_TRUE(data.Quu_.isApprox(R + B.transpose() * Q * B));
+//  EXPECT_TRUE(data.Qux_.isApprox(B.transpose() * Q * A));
+//  EXPECT_TRUE(data.Qx_.isApprox(Q * x + q + A.transpose() * (Q * x + q)));
+//  EXPECT_TRUE(data.Qu_.isApprox(R * u + r + B.transpose() * (Q * x + q)));
+//
+//  // Calc Gains
+//  res = data.CalcGains();
+//  EXPECT_EQ(res, ErrorCodes::NoError);
+//  EXPECT_TRUE(data.d_.isApprox(data.Quu_.ldlt().solve(-data.Qu_)));
+//  EXPECT_TRUE(data.K_.isApprox(data.Quu_.ldlt().solve(data.Qux_)));
+//
+//  // Calc cost-to-go
+//  res = data.CalcCostToGo();
+//  Matrix& P = Q;
+//  Matrix P_ = Q + A.transpose() * P * A - A.transpose() * P * B * (R + B.transpose() * P * B).llt().solve(B.transpose() * P * A);
+//  EXPECT_TRUE(P_.isApprox(data.P_));
 
   PrintErrorCode(res);
 

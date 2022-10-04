@@ -17,11 +17,13 @@ if (${PROJECT_IS_TOP_LEVEL} AND ${linesearch_BUILD_TESTS})
 endif()
 
 add_library(linesearch_linesearch
-  linesearch.h
-  linesearch.c
+  linesearch.cpp
+  linesearch.hpp
+#  linesearch.h
+#  linesearch.c
   cubicspline.c
   cubicspline.h
-  linesearch.cpp linesearch.hpp)
+)
 target_include_directories(linesearch_linesearch
   INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>

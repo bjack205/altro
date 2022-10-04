@@ -171,44 +171,19 @@ ErrorCodes SolverImpl::BackwardPass() {
                                Quu_.data(), Qux_.data(), Qx_.data(), Qu_.data(), Qxx_tmp_.data(),
                                Quu_tmp_.data(), Qux_tmp_.data(), Qx_tmp_.data(), Qu_tmp_.data(),
                                linear_only_update, is_diag);
-  if (res == TVLQR_SUCCESS) {
-    return ErrorCodes::NoError;
-  } else {
+  if (res != TVLQR_SUCCESS) {
     return ErrorCodes::BackwardPassFailed;
+  } else {
+    return ErrorCodes::NoError;
   }
-  //    data_[N].CalcTerminalCostToGo();
-  //    for (int k = N - 1; k >= 0; --k) {
-  //      data_[k].CalcActionValueExpansion(data_[k + 1]);
-  //      data_[k].CalcGains();
-  //      data_[k].CalcCostToGo();
-  //    }
-//  return ErrorCodes::NoError;
 }
 
 ErrorCodes SolverImpl::LinearRollout() {
   tvlqr_ForwardPass(nx_.data(), nu_.data(), horizon_length_, A_.data(), B_.data(), f_.data(),
                     K_.data(), d_.data(), P_.data(), p_.data(), initial_state_.data(), x_.data(),
                     u_.data(), y_.data());
-  //  int N = horizon_length_;
-  //  data_[0].x_ = initial_state_;
-  //  for (int k = 0; k < N; ++k) {
-  //    data_[k].y_ = data_[k].P_ * data_[k].x_ + data_[k].p_;
-  //    data_[k].u_ = -data_[k].K_ * data_[k].x_ + data_[k].d_;
-  //    data_[k + 1].x_ = data_[k].A_ * data_[k].x_ + data_[k].B_ * data_[k].u_ + data_[k].f_;
-  //  }
-  //  data_[N].y_ = data_[N].P_ * data_[N].x_ + data_[N].p_;
-
   return ErrorCodes::NoError;
 }
-
-//a_float SolverImpl::CalcObjective() {
-//  a_float J = 0;
-//  for (int k = 0; k <= horizon_length_; ++k) {
-//    if (k < horizon_length_) {
-//    }
-//  }
-//  return 0;
-//}
 
 a_float SolverImpl::Stationarity() {
   int N = horizon_length_;

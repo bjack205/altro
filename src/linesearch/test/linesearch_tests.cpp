@@ -11,13 +11,13 @@ extern "C" {
 
 TEST(CubicSplineTests, EvalConstant) {
   const double a = 1.2;
-  CubicSpline constant_spline = {.x0 = 0, .a = a, .b = 0.0, .c = 0.0, .d = 0.0};
+  CubicSpline constant_spline = {0, a, 0.0, 0.0, 0.0};
   CubicSpline *p = &constant_spline;
   CubicSplineReturnCodes err;
 
   std::vector<double> test_x = {-1, 0, 1, 2};
   for (double x : test_x) {
-    double y = CubicSpline_Eval(p, 0.0, &err);
+    double y = CubicSpline_Eval(p, x, &err);
     EXPECT_EQ(err, CS_NOERROR);
     EXPECT_DOUBLE_EQ(y, a);
   }

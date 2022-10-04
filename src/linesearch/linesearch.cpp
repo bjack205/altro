@@ -137,7 +137,7 @@ double CubicLineSearch::Run(linesearch::MeritFun merit_fun,
       double ahi = alpha;
       this->phi_hi_ = phi;
       this->dphi_hi_ = dphi;
-      return Zoom(merit_fun, merit_fun_derivative, alpha_prev, alpha);
+      return Zoom(merit_fun, merit_fun_derivative, alo, ahi);
     }
 
     /*
@@ -210,7 +210,7 @@ double CubicLineSearch::Zoom(linesearch::MeritFun merit_fun,
                              double ahi) {
   double a_max;
   double a_min;
-  double alpha;
+  double alpha = alo;
   double phi;
   double dphi;
   enum CubicSplineReturnCodes cs_err;
@@ -304,7 +304,7 @@ double CubicLineSearch::Zoom(linesearch::MeritFun merit_fun,
        */
 
       // Pick the endpoint that keeps the "bowl" shape
-      bool reset_ahi = dphi * (ahi - alo);
+      bool reset_ahi = dphi * (ahi - alo) <= 0;
       if (reset_ahi) {
         ahi = alo;
         phi_hi = phi_lo;
