@@ -356,7 +356,7 @@ ErrorCodes KnotPointData::CalcTerminalCostToGo() {
 
 
 a_float KnotPointData::CalcOriginalCost() {
-  a_float J;
+  a_float J = 0.0;
   int n = GetStateDim();
   int m = GetInputDim();
   switch (cost_fun_type_) {

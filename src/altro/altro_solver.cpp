@@ -98,8 +98,6 @@ ErrorCodes ALTROSolver::SetCostFunction(CostFunction cost_function, CostGradient
 ErrorCodes ALTROSolver::SetDiagonalCost(int num_states, int num_inputs, const a_float *Q_diag,
                                         const a_float *R_diag, const a_float *q, const a_float *r,
                                         a_float c, int k_start, int k_stop) {
-  using MatrixXd = Eigen::Matrix<a_float, Eigen::Dynamic, Eigen::Dynamic>;
-  using VectorXd = Eigen::Vector<a_float, Eigen::Dynamic>;
   ErrorCodes err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
   err = AssertDimensionsAreSet(k_start, k_stop, "Cannot set the cost function");
   if (err != ErrorCodes::NoError) return err;

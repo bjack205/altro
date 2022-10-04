@@ -74,6 +74,9 @@ int tvlqr_BackwardPass(const int *nx, const int *nu, int num_horizon, const lqr_
                        bool is_diag) {
   int N = num_horizon;
 
+  // TODO: Use this option
+  (void) linear_only_update;
+
   // Terminal Cost-to-go
   Matrix P_N(P[N], nx[N], nx[N]);
   Vector p_N(p[N], nx[N]);

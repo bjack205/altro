@@ -69,6 +69,9 @@ const char* ErrorCodeToString(ErrorCodes err) {
     case ErrorCodes::InvalidPointer:
       return "Invalid pointer";
       break;
+    case ErrorCodes::BackwardPassFailed:
+      return "Backward pass failed. Trying increasing regularization";
+      break;
   }
   return nullptr;
 }

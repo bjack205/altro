@@ -66,8 +66,8 @@ class SolverImpl {
   // TVLQR data arrays
   //   Note data is actually stored in data_, these are just pointers to that data to call tvlqr
   std::vector<a_float*> x_;
-  std::vector<a_float*> y_;
   std::vector<a_float*> u_;
+  std::vector<a_float*> y_;
 
   std::vector<a_float*> A_;
   std::vector<a_float*> B_;
@@ -78,6 +78,12 @@ class SolverImpl {
   std::vector<a_float*> lux_;
   std::vector<a_float*> lx_;
   std::vector<a_float*> lu_;
+
+  std::vector<a_float*> K_;
+  std::vector<a_float*> d_;
+
+  std::vector<a_float*> P_;
+  std::vector<a_float*> p_;
 
   std::vector<a_float*> Qxx_;
   std::vector<a_float*> Quu_;
@@ -90,12 +96,6 @@ class SolverImpl {
   std::vector<a_float*> Qux_tmp_;
   std::vector<a_float*> Qx_tmp_;
   std::vector<a_float*> Qu_tmp_;
-
-  std::vector<a_float*> K_;
-  std::vector<a_float*> d_;
-
-  std::vector<a_float*> P_;
-  std::vector<a_float*> p_;
   a_float delta_V_[2];
 
   bool is_initialized_ = false;

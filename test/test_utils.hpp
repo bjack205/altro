@@ -11,5 +11,5 @@
 void discrete_double_integrator_dynamics(double *xnext, const double *x, const double *u, float h,
                                          int dim);
 
-void discrete_double_integrator_jacobian(double *jac, const double *x, const double *, float h,
+void discrete_double_integrator_jacobian(double *jac, const double *x, const double *u, float h,
                                          int dim);

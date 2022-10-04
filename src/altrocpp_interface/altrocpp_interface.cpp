@@ -18,11 +18,13 @@ GeneralDiscreteDynamics::GeneralDiscreteDynamics(int n, int m,
 
 void GeneralDiscreteDynamics::Evaluate(const VectorXdRef& x, const VectorXdRef& u, float t, float h,
                                        Eigen::Ref<VectorXd> xnext) {
+  (void)t;
   dynamics_function_(xnext.data(), x.data(), u.data(), h);
 }
 
 void GeneralDiscreteDynamics::Jacobian(const VectorXdRef& x, const VectorXdRef& u, float t, float h,
                                        Eigen::Ref<MatrixXd> jac) {
+  (void)t;
   dynamics_jacobian_(jac.data(), x.data(), u.data(), h);
 }
 

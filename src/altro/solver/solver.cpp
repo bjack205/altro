@@ -201,14 +201,14 @@ ErrorCodes SolverImpl::LinearRollout() {
   return ErrorCodes::NoError;
 }
 
-a_float SolverImpl::CalcObjective() {
-  a_float J = 0;
-  for (int k = 0; k <= horizon_length_; ++k) {
-    if (k < horizon_length_) {
-    }
-  }
-  return 0;
-}
+//a_float SolverImpl::CalcObjective() {
+//  a_float J = 0;
+//  for (int k = 0; k <= horizon_length_; ++k) {
+//    if (k < horizon_length_) {
+//    }
+//  }
+//  return 0;
+//}
 
 a_float SolverImpl::Stationarity() {
   int N = horizon_length_;
