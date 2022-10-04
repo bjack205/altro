@@ -29,10 +29,8 @@ bool CubicLineSearch::SetVerbose(bool verbose) {
   return verbose_original;
 }
 
-double CubicLineSearch::Run(linesearch::MeritFun merit_fun,
-                            linesearch::MeritFunDerivative merit_fun_derivative, double alpha0,
-                            double phi0, double dphi0) {
-
+double CubicLineSearch::Run(MeritFun merit_fun, double alpha0, double phi0,
+                            double dphi0) {
   // Store the merit function value and derivative at 0
   this->phi0_ = phi0;
   this->dphi0_ = dphi0;
@@ -62,12 +60,13 @@ double CubicLineSearch::Run(linesearch::MeritFun merit_fun,
   double c1 = this->c1_;
   double c2 = this->c2_;
   bool hit_max_alpha = false;
+  double phi;
+  double dphi;
 
   for (int iter = 0; iter < this->max_iters; ++iter) {
     this->n_iters_ += 1;
     // TODO: change this so that you get both at the same time with one function call?
-    double phi = merit_fun(alpha);
-    double dphi = merit_fun_derivative(alpha);
+    merit_fun(alpha, &phi, &dphi);
 
     bool sufficient_decrease_satisfied = phi <= phi0 + c1 * alpha * dphi0;
     bool function_not_decreasing = phi >= phi_prev;  // works because phi > phi_prev
@@ -99,8 +98,8 @@ double CubicLineSearch::Run(linesearch::MeritFun merit_fun,
       // If interpolation was successful, try evaluating the new point
       if (!cubic_spline_failed) {
         this->n_iters_ += 1;
-        double phi_cubic = merit_fun(alpha_cubic);
-        double dphi_cubic = merit_fun_derivative(alpha_cubic);
+        double phi_cubic, dphi_cubic;
+        merit_fun(alpha_cubic, &phi_cubic, &dphi_cubic);
         bool sufficient_decrease_satisfied_cubic = phi_cubic <= phi0 + c1 * alpha_cubic * dphi0;
         bool strong_wolfe_satisfied_cubic = fabs(dphi_cubic) <= -c2 * dphi0;
 
@@ -110,9 +109,7 @@ double CubicLineSearch::Run(linesearch::MeritFun merit_fun,
           this->return_code_ = ReturnCodes::MINIMUM_FOUND;
           return alpha_cubic;
         }
-
       }
-
     }
 
     /*
@@ -129,7 +126,8 @@ double CubicLineSearch::Run(linesearch::MeritFun merit_fun,
       if (verbose_) {
         std::cout << "Zooming with alo < hi:\n";
         std::cout << "  Not Sufficient decrease? " << !sufficient_decrease_satisfied << std::endl;
-        std::cout << "  Function not decreasing? " << (iter > 0 && function_not_decreasing) << std::endl;
+        std::cout << "  Function not decreasing? " << (iter > 0 && function_not_decreasing)
+                  << std::endl;
       }
       double alo = alpha_prev;
       this->phi_lo_ = phi_prev;
@@ -137,7 +135,7 @@ double CubicLineSearch::Run(linesearch::MeritFun merit_fun,
       double ahi = alpha;
       this->phi_hi_ = phi;
       this->dphi_hi_ = dphi;
-      return Zoom(merit_fun, merit_fun_derivative, alo, ahi);
+      return Zoom(merit_fun, alo, ahi);
     }
 
     /*
@@ -145,7 +143,6 @@ double CubicLineSearch::Run(linesearch::MeritFun merit_fun,
      *   - alpha satisfies the sufficient decrease condition
      *   - phi(alpha) is the smallest we've seen so far
      */
-
 
     // Check if gradient is non-negative
     if (dphi >= 0) {
@@ -162,7 +159,7 @@ double CubicLineSearch::Run(linesearch::MeritFun merit_fun,
       if (verbose_) {
         std::cout << "Zooming with ahi < lo (" << ahi << ", " << alo << ")\n";
       }
-      return Zoom(merit_fun, merit_fun_derivative, alo, ahi);
+      return Zoom(merit_fun, alo, ahi);
     }
 
     // Expand the interval
@@ -205,9 +202,7 @@ double CubicLineSearch::Run(linesearch::MeritFun merit_fun,
  * (c) dphi(alo) * (ahi - alo) < 0 (gradient of lower point is negative if it's on the left, and
  *     positive if it's on the right)
  */
-double CubicLineSearch::Zoom(linesearch::MeritFun merit_fun,
-                             linesearch::MeritFunDerivative merit_fun_derivative, double alo,
-                             double ahi) {
+double CubicLineSearch::Zoom(linesearch::MeritFun merit_fun, double alo, double ahi) {
   double a_max;
   double a_min;
   double alpha = alo;
@@ -233,12 +228,12 @@ double CubicLineSearch::Zoom(linesearch::MeritFun merit_fun,
   for (int zoom_iter = this->n_iters_ + 1; zoom_iter < this->max_iters; ++zoom_iter) {
     // Return if the interval gets too small
     if (fabs(alo - ahi) < this->min_interval_size) {
-      if (verbose_) std::cout << "Window size too small with alo = " << alo << ", ahi = " << ahi << std::endl;
+      if (verbose_)
+        std::cout << "Window size too small with alo = " << alo << ", ahi = " << ahi << std::endl;
       alpha = (alo + ahi) / 2.0;  // check at the midpoint
 
       this->n_iters_ += 1;
-      phi = merit_fun(alpha);
-      dphi = merit_fun_derivative(alpha);
+      merit_fun(alpha, &phi, &dphi);
       this->sufficient_decrease_ = phi <= phi0 + c1 * alpha * dphi0;
       this->curvature_ = fabs(dphi) <= -c2 * dphi0;
       if (this->sufficient_decrease_ && this->curvature_) {
@@ -278,8 +273,7 @@ double CubicLineSearch::Zoom(linesearch::MeritFun merit_fun,
     }
 
     this->n_iters_ += 1;
-    phi = merit_fun(alpha);
-    dphi = merit_fun_derivative(alpha);
+    merit_fun(alpha, &phi, &dphi);
     bool sufficient_decrease = phi <= phi0 + c1 * alpha * dphi0;
     bool higher_than_lo = phi > phi_lo;
     bool curvature = fabs(dphi) <= -c2 * dphi0;

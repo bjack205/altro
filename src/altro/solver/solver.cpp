@@ -284,6 +284,8 @@ ErrorCodes SolverImpl::CalcExpansions() {
   return ErrorCodes::NoError;
 }
 
-ErrorCodes SolverImpl::ForwardPass() { return ErrorCodes::MaxConstraintsExceeded; }
+ErrorCodes SolverImpl::ForwardPass() {
 
+  return ErrorCodes::NoError;
+}
 }  // namespace altro

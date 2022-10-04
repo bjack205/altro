@@ -9,8 +9,7 @@
 
 namespace linesearch {
 
-using MeritFun = std::function<double(double)>;
-using MeritFunDerivative = std::function<double(double)>;
+using MeritFun = std::function<void(double,double*,double*)>;
 
 class CubicLineSearch {
  public:
@@ -24,7 +23,7 @@ class CubicLineSearch {
     MAX_ITERATIONS,
     HIT_MAX_STEPSIZE,
   };
-  double Run(MeritFun merit_fun, MeritFunDerivative merit_fun_derivative, double alpha0, double phi0,
+  double Run(MeritFun merit_fun, double alpha0, double phi0,
              double dphi0);
 
   bool SetOptimalityTolerances(double c1, double c2);
@@ -45,7 +44,7 @@ class CubicLineSearch {
   bool try_cubic_first = false;
 
  private:
-  double Zoom(MeritFun merit_fun, MeritFunDerivative merit_fun_derivative, double alo, double ahi);
+  double Zoom(MeritFun merit_fun, double alo, double ahi);
 
   ReturnCodes return_code_;
   double c1_ = 1e-4;
