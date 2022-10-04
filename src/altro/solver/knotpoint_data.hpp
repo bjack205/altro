@@ -177,6 +177,12 @@ class KnotPointData {
   Vector Qx_;
   Vector Qu_;
 
+  Matrix Qxx_tmp_;
+  Matrix Quu_tmp_;
+  Matrix Qux_tmp_;
+  Vector Qx_tmp_;
+  Vector Qu_tmp_;
+
   Eigen::LLT<Matrix> Quu_fact;
   Matrix K_;
   Vector d_;  // TODO: make this an extra column of K

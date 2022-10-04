@@ -20,28 +20,11 @@ class KnotPointData;
 
 class SolverImpl {
  public:
-  explicit SolverImpl(int N)
-      : horizon_length_(N),
-        nx_(N + 1, 0),
-        nu_(N + 1, 0),
-        h_(N),
-        opts(),
-        stats(),
-        problem_(N),
-        alsolver_(N) {
-    altro::TrajectoryXXd traj(0, 0, N);
-    trajectory_ = std::make_shared<altro::TrajectoryXXd>(traj);
-
-    // Initialize knot point data
-    for (int i = 0; i <= N; ++i) {
-      bool is_terminal = (i == N);
-      data_.emplace_back(is_terminal);
-    }
-  }
+  explicit SolverImpl(int N);
 
   bool IsInitialized() const { return is_initialized_; }
 
-  bool Initialize();
+  ErrorCodes Initialize();
   a_float CalcCost();
   a_float CalcObjective();
 
@@ -74,8 +57,46 @@ class SolverImpl {
   altro::augmented_lagrangian::AugmentedLagrangianiLQR<Eigen::Dynamic, Eigen::Dynamic> alsolver_;
   std::shared_ptr<altro::TrajectoryXXd> trajectory_;
 
+  // Flags
+  bool cost_is_diagonal_ = false;
+
  private:
   void SetCppSolverOptions();
+
+  // TVLQR data arrays
+  //   Note data is actually stored in data_, these are just pointers to that data to call tvlqr
+  std::vector<a_float*> x_;
+  std::vector<a_float*> y_;
+  std::vector<a_float*> u_;
+
+  std::vector<a_float*> A_;
+  std::vector<a_float*> B_;
+  std::vector<a_float*> f_;
+
+  std::vector<a_float*> lxx_;
+  std::vector<a_float*> luu_;
+  std::vector<a_float*> lux_;
+  std::vector<a_float*> lx_;
+  std::vector<a_float*> lu_;
+
+  std::vector<a_float*> Qxx_;
+  std::vector<a_float*> Quu_;
+  std::vector<a_float*> Qux_;
+  std::vector<a_float*> Qx_;
+  std::vector<a_float*> Qu_;
+
+  std::vector<a_float*> Qxx_tmp_;
+  std::vector<a_float*> Quu_tmp_;
+  std::vector<a_float*> Qux_tmp_;
+  std::vector<a_float*> Qx_tmp_;
+  std::vector<a_float*> Qu_tmp_;
+
+  std::vector<a_float*> K_;
+  std::vector<a_float*> d_;
+
+  std::vector<a_float*> P_;
+  std::vector<a_float*> p_;
+  a_float delta_V_[2];
 
   bool is_initialized_ = false;
 };

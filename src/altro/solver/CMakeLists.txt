@@ -28,6 +28,7 @@ target_link_libraries(altro_impl
 
   PRIVATE
   fmt::fmt
+  altro::tvlqr
 )
 
 # Make all includes relative to source directory

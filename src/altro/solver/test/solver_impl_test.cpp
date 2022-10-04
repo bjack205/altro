@@ -105,7 +105,11 @@ TEST(SolverImpl, Constructor) {
 }
 
 TEST_F(SolverImplTest, TVLQR_Test) {
+  fmt::print("\n#############################################\n");
+  fmt::print("                TVLQR Test\n");
+  fmt::print("#############################################\n");
   InitializeDoubleIntegratorSolver();
+  solver.Initialize();
 
   // Calculate backward pass
   solver.BackwardPass();
@@ -148,6 +152,7 @@ TEST_F(SolverImplTest, TVLQR_Test) {
 
 TEST_F(SolverImplTest, CopyTrajectory) {
   InitializeDoubleIntegratorSolver();
+  solver.Initialize();
 
   // Set the initial trajectory
   std::vector<Vector> xref(N+1);
@@ -175,10 +180,11 @@ TEST_F(SolverImplTest, CopyTrajectory) {
 }
 
 TEST_F(SolverImplTest, MeritFunTest) {
-  fmt::print("#############################################\n");
+  fmt::print("\n#############################################\n");
   fmt::print("                Merit Fun Test\n");
   fmt::print("#############################################\n");
   InitializeDoubleIntegratorSolver();
+  solver.Initialize();
 
   // Set the initial trajectory
   std::vector<Vector> xref(N+1);

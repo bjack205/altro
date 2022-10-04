@@ -187,9 +187,11 @@ ErrorCodes KnotPointData::Initialize() {
   // General data
   x = Vector::Zero(n);
   u = Vector::Zero(m);
+  y = Vector::Zero(n);
 
   x_ = Vector::Zero(n);
   u_ = Vector::Zero(m);
+  y_ = Vector::Zero(n);
 
   f_ = Vector::Zero(n2);
   dynamics_jac_ = Matrix::Zero(n2, n + m);
@@ -236,6 +238,12 @@ ErrorCodes KnotPointData::Initialize() {
   Qux_ = Matrix::Zero(m, n);
   Qx_ = Vector::Zero(n);
   Qu_ = Vector::Zero(m);
+
+  Qxx_tmp_ = Matrix::Zero(n, n);
+  Quu_tmp_ = Matrix::Zero(m, m);
+  Qux_tmp_ = Matrix::Zero(m, n);
+  Qx_tmp_ = Vector::Zero(n);
+  Qu_tmp_ = Vector::Zero(m);
 
   Quu_fact = Quu_.llt();
   K_ = Matrix::Zero(m, n);

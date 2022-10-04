@@ -34,6 +34,7 @@ enum class ErrorCodes {
   CholeskyFailed,
   OpOnlyValidAtTerminalKnotPoint,
   InvalidPointer,
+  BackwardPassFailed,
   FileError,
 };
 
