@@ -35,6 +35,7 @@ enum class ErrorCodes {
   OpOnlyValidAtTerminalKnotPoint,
   InvalidPointer,
   BackwardPassFailed,
+  LineSearchFailed,
   FileError,
 };
 

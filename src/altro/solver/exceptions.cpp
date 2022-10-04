@@ -72,6 +72,9 @@ const char* ErrorCodeToString(ErrorCodes err) {
     case ErrorCodes::BackwardPassFailed:
       return "Backward pass failed. Trying increasing regularization";
       break;
+    case ErrorCodes::LineSearchFailed:
+      return "Line search failed to find a point satisfying the Strong Wolfe Conditions";
+      break;
   }
   return nullptr;
 }

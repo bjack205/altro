@@ -29,8 +29,7 @@ bool CubicLineSearch::SetVerbose(bool verbose) {
   return verbose_original;
 }
 
-double CubicLineSearch::Run(MeritFun merit_fun, double alpha0, double phi0,
-                            double dphi0) {
+double CubicLineSearch::Run(MeritFun merit_fun, double alpha0, double phi0, double dphi0) {
   // Store the merit function value and derivative at 0
   this->phi0_ = phi0;
   this->dphi0_ = dphi0;
@@ -62,6 +61,10 @@ double CubicLineSearch::Run(MeritFun merit_fun, double alpha0, double phi0,
   bool hit_max_alpha = false;
   double phi;
   double dphi;
+  if (verbose_)
+    std::cout << "Starting Cubic Line Search with\n           "
+                 "phi0 = "
+              << phi0 << ", dphi0 = " << dphi0 << std::endl;
 
   for (int iter = 0; iter < this->max_iters; ++iter) {
     this->n_iters_ += 1;
@@ -71,9 +74,14 @@ double CubicLineSearch::Run(MeritFun merit_fun, double alpha0, double phi0,
     bool sufficient_decrease_satisfied = phi <= phi0 + c1 * alpha * dphi0;
     bool function_not_decreasing = phi >= phi_prev;  // works because phi > phi_prev
     bool strong_wolfe_satisfied = fabs(dphi) <= -c2 * dphi0;
+    if (verbose_)
+      std::cout << "  iter = " << iter << ": phi = " << phi << ", dphi =" << dphi << ". Armijo? "
+                << sufficient_decrease_satisfied << " Wolfe? " << strong_wolfe_satisfied
+                << std::endl;
 
     // Check convergence
     if (sufficient_decrease_satisfied && strong_wolfe_satisfied) {
+      if (verbose_) std::cout << "  Optimal Step Found!\n";
       this->sufficient_decrease_ = true;
       this->curvature_ = true;
       this->return_code_ = ReturnCodes::MINIMUM_FOUND;
@@ -102,6 +110,10 @@ double CubicLineSearch::Run(MeritFun merit_fun, double alpha0, double phi0,
         merit_fun(alpha_cubic, &phi_cubic, &dphi_cubic);
         bool sufficient_decrease_satisfied_cubic = phi_cubic <= phi0 + c1 * alpha_cubic * dphi0;
         bool strong_wolfe_satisfied_cubic = fabs(dphi_cubic) <= -c2 * dphi0;
+        if (verbose_)
+          std::cout << "  iter = " << iter << ": phi = " << phi_cubic << ", dphi =" << dphi_cubic
+                    << ". Armijo? " << sufficient_decrease_satisfied_cubic << " Wolfe? "
+                    << strong_wolfe_satisfied_cubic << std::endl;
 
         if (sufficient_decrease_satisfied_cubic && strong_wolfe_satisfied_cubic) {
           this->sufficient_decrease_ = true;

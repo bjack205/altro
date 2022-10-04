@@ -128,6 +128,7 @@ ErrorCodes SolverImpl::Initialize() {
   lx_[N] = data_[N].lx_.data();
   P_[N] = data_[N].P_.data();
   p_[N] = data_[N].p_.data();
+  is_initialized_ = true;
 
   return ErrorCodes::NoError;
 }
@@ -284,8 +285,29 @@ ErrorCodes SolverImpl::CalcExpansions() {
   return ErrorCodes::NoError;
 }
 
-ErrorCodes SolverImpl::ForwardPass() {
+ErrorCodes SolverImpl::ForwardPass(a_float* alpha) {
+  auto phi = [this](double alpha, double* phi, double* dphi) {
+    this->MeritFunction(alpha, phi, dphi);
+  };
+  double phi0, dphi0;
+  phi(0.0, &phi0, &dphi0);
+  ls_.SetOptimalityTolerances(1e-4, 0.1);
+  ls_.try_cubic_first = true;
+  *alpha = ls_.Run(phi, 1.0, phi0, dphi0);
+  auto res = ls_.GetStatus();
+  if (std::isnan(*alpha) || res != linesearch::CubicLineSearch::ReturnCodes::MINIMUM_FOUND) {
+    // TODO: Provide a more fine-grained return code
+    return ErrorCodes::LineSearchFailed;
+  }
+  return ErrorCodes::NoError;
+}
 
+ErrorCodes SolverImpl::OpenLoopRollout() {
+  if (!IsInitialized()) return ErrorCodes::SolverNotInitialized;
+  data_[0].x_ = initial_state_;
+  for (int k = 0; k < horizon_length_; ++k) {
+    data_[k].CalcDynamics(data_[k + 1].x_.data());
+  }
   return ErrorCodes::NoError;
 }
 }  // namespace altro

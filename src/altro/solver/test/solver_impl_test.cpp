@@ -259,4 +259,42 @@ TEST_F(SolverImplTest, MeritFunTest) {
   fmt::print("  dphi err = {}\n", dphi_err);
 }
 
+TEST_F(SolverImplTest, ForwardPassTest) {
+  fmt::print("\n#############################################\n");
+  fmt::print("                Forward Pass\n");
+  fmt::print("#############################################\n");
+  InitializeDoubleIntegratorSolver();
+  solver.Initialize();
+
+  // Set the initial trajectory
+  std::vector<Vector> uref(N);
+  for (int k = 0; k < N; ++k) {
+    double theta = k / static_cast<double>(N);
+    uref[k] = Vector::Constant(m, theta);
+
+    solver.data_[k].u_ = uref[k];
+  }
+  solver.OpenLoopRollout();
+
+  // Copy trajectory to reference
+  solver.CopyTrajectory();
+  EXPECT_LT((solver.data_[0].x - x0).norm(), 1e-10);
+//  EXPECT_LT((solver.data_[N].x - xf).norm(), 1e-10);
+
+  // Compute gains
+  solver.CalcExpansions();
+  solver.BackwardPass();
+
+  // Check that the merit function has zero slow at a step of 1.0
+  double phi, dphi;
+  solver.MeritFunction(1.0, &phi, &dphi);
+  EXPECT_LT(std::abs(dphi), 1e-8);
+
+  // Run ForwardPass
+  double alpha;
+  solver.ForwardPass(&alpha);
+  EXPECT_DOUBLE_EQ(alpha, 1.0);
+}
+
+
 }  // namespace altro

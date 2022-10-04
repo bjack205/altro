@@ -7,6 +7,7 @@
 
 #include <memory>
 
+#include "linesearch/linesearch.hpp"
 #include "altro/augmented_lagrangian/al_solver.hpp"
 #include "internal_types.hpp"
 #include "knotpoint_data.hpp"
@@ -27,10 +28,11 @@ class SolverImpl {
   ErrorCodes Initialize();
   a_float CalcCost();
   a_float CalcObjective();
+  ErrorCodes OpenLoopRollout();
 
   ErrorCodes BackwardPass();
   ErrorCodes MeritFunction(a_float alpha, a_float *phi, a_float *dphi);
-  ErrorCodes ForwardPass();
+  ErrorCodes ForwardPass(a_float *alpha);
   ErrorCodes CopyTrajectory();
 
   ErrorCodes LinearRollout();
@@ -52,10 +54,12 @@ class SolverImpl {
   AltroStats stats;
   std::vector<KnotPointData> data_;
 
+
   // Old AltroCpp
   altro::problem::Problem problem_;
   altro::augmented_lagrangian::AugmentedLagrangianiLQR<Eigen::Dynamic, Eigen::Dynamic> alsolver_;
   std::shared_ptr<altro::TrajectoryXXd> trajectory_;
+  linesearch::CubicLineSearch ls_;
 
   // Flags
   bool cost_is_diagonal_ = false;
