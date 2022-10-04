@@ -65,6 +65,7 @@ double CubicLineSearch::Run(linesearch::MeritFun merit_fun,
 
   for (int iter = 0; iter < this->max_iters; ++iter) {
     this->n_iters_ += 1;
+    // TODO: change this so that you get both at the same time with one function call?
     double phi = merit_fun(alpha);
     double dphi = merit_fun_derivative(alpha);
 

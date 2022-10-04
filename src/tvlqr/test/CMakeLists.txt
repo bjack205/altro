@@ -1,0 +1,12 @@
+add_executable(tvlqr_test
+  tvlqr_test.cpp
+)
+target_link_libraries(tvlqr_test
+  PRIVATE
+  tvlqr
+  gtest_main
+  Eigen3::Eigen
+  fmt::fmt
+  altro::test_utils
+)
+gtest_discover_tests(tvlqr_test)
