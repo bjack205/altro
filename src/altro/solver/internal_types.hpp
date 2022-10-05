@@ -12,5 +12,7 @@ namespace altro {
 
 using Vector = Eigen::Vector<a_float, Eigen::Dynamic>;
 using Matrix = Eigen::Matrix<a_float, Eigen::Dynamic, Eigen::Dynamic>;
+//using ConstVector = Eigen::Vector<a_float, Eigen::Dynamic>;
+//using ConstMatrix = Eigen::Matrix<a_float, Eigen::Dynamic, Eigen::Dynamic>;
 
 }  // namespace altro

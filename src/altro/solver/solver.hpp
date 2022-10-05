@@ -29,6 +29,7 @@ class SolverImpl {
   a_float CalcCost();
   a_float CalcObjective();
   ErrorCodes OpenLoopRollout();
+  ErrorCodes Solve();
 
   ErrorCodes BackwardPass();
   ErrorCodes MeritFunction(a_float alpha, a_float *phi, a_float *dphi);
@@ -39,8 +40,6 @@ class SolverImpl {
   a_float Stationarity();
   ErrorCodes CalcCostGradient();
   ErrorCodes CalcExpansions();
-
-  void Solve();
 
   // Problem definition
   int horizon_length_;
@@ -66,6 +65,12 @@ class SolverImpl {
 
  private:
   void SetCppSolverOptions();
+
+  // Internal variables for logging
+  a_float phi0_;
+  a_float dphi0_;
+  a_float phi_;
+  a_float dphi_;
 
   // TVLQR data arrays
   //   Note data is actually stored in data_, these are just pointers to that data to call tvlqr

@@ -29,6 +29,11 @@ bool CubicLineSearch::SetVerbose(bool verbose) {
   return verbose_original;
 }
 
+void CubicLineSearch::GetFinalMeritValues(double *phi, double *dphi) const {
+  *phi = phi_;
+  *dphi = dphi_;
+}
+
 double CubicLineSearch::Run(MeritFun merit_fun, double alpha0, double phi0, double dphi0) {
   // Store the merit function value and derivative at 0
   this->phi0_ = phi0;
@@ -59,8 +64,8 @@ double CubicLineSearch::Run(MeritFun merit_fun, double alpha0, double phi0, doub
   double c1 = this->c1_;
   double c2 = this->c2_;
   bool hit_max_alpha = false;
-  double phi;
-  double dphi;
+  double& phi = phi_;
+  double& dphi = dphi_;
   if (verbose_)
     std::cout << "Starting Cubic Line Search with\n           "
                  "phi0 = "
@@ -218,8 +223,8 @@ double CubicLineSearch::Zoom(linesearch::MeritFun merit_fun, double alo, double 
   double a_max;
   double a_min;
   double alpha = alo;
-  double phi;
-  double dphi;
+  double& phi = phi_;
+  double& dphi = dphi_;
   enum CubicSplineReturnCodes cs_err;
 
   if (!std::isfinite(alo) || !std::isfinite(ahi)) {
@@ -358,5 +363,6 @@ const char* CubicLineSearch::StatusToString() {
       break;
   };
 }
+
 
 }  // namespace linesearch

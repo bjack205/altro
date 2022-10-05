@@ -83,13 +83,31 @@ TEST(DoubleIntegrator, SolverUnconstrained) {
   uf.setZero();
 
   // Define the problem
+  ErrorCodes err;
   ALTROSolver solver(num_horizon);
-  solver.SetDimension(num_states, num_inputs, 0, LastIndex);
-  solver.SetTimeStep(h, 0, LastIndex);
-  solver.SetExplicitDynamics(dyn, jac, 0, LastIndex);
-  solver.SetLQRCost(0, 0, Q.data(), R.data(), xf.data(), uf.data(), 0, LastIndex);
-  solver.SetInitialState(x0.data(), x0.size());
-  solver.Initialize();
+  err = solver.SetDimension(num_states, num_inputs, 0, LastIndex);
+  PrintErrorCode(err);
+  EXPECT_EQ(err, ErrorCodes::NoError);
+
+  err = solver.SetTimeStep(h, 0, LastIndex);
+  PrintErrorCode(err);
+  EXPECT_EQ(err, ErrorCodes::NoError);
+
+  err = solver.SetExplicitDynamics(dyn, jac, 0, LastIndex);
+  EXPECT_EQ(err, ErrorCodes::NoError);
+  PrintErrorCode(err);
+
+  err = solver.SetLQRCost(num_states, num_inputs, Q.data(), R.data(), xf.data(), uf.data(), 0, LastIndex);
+  PrintErrorCode(err);
+  EXPECT_EQ(err, ErrorCodes::NoError);
+
+  err = solver.SetInitialState(x0.data(), x0.size());
+  PrintErrorCode(err);
+  EXPECT_EQ(err, ErrorCodes::NoError);
+
+  err = solver.Initialize();
+  PrintErrorCode(err);
+  EXPECT_EQ(err, ErrorCodes::NoError);
   EXPECT_TRUE(solver.IsInitialized());
   fmt::print("Solver Initialized.\n");
 
@@ -100,16 +118,13 @@ TEST(DoubleIntegrator, SolverUnconstrained) {
   solver.SetInput(uinit.data(), uinit.size(), 0, LastIndex);
 
   // Get Initial Cost
-  double cost0 = (x0 - xf).transpose() * Q.asDiagonal() * (x0 - xf);
-  //  fmt::print("dx = [{}]\n", x)
-  fmt::print("cost0 = {}\n", cost0);
-
   double cost_initial = solver.CalcCost();
   fmt::print("Initial cost = {}\n", cost_initial);
 
   // Solve
   AltroOptions opts;
   opts.verbose = Verbosity::Inner;
+  opts.iterations_max = 3;
   solver.SetOptions(opts);
   SolveStatus status = solver.Solve();
   EXPECT_EQ(status, SolveStatus::Success);
@@ -118,26 +133,35 @@ TEST(DoubleIntegrator, SolverUnconstrained) {
   double cost_final = solver.CalcCost();
   fmt::print("Final cost = {}\n", cost_final);
 
-//  Eigen::VectorXd xk(num_states);
-//  Eigen::VectorXd uk(num_inputs);
-//  for (int k = 0; k < num_horizon; ++k) {
-//    solver.GetState(xk.data(), k);
-//    if (k < num_horizon - 1) {
-//      solver.GetInput(uk.data(), k);
-//      fmt::print("Index {}: [{}], [{}]\n", k, xk.transpose().eval(), uk.transpose().eval());
-//    } else {
-//      fmt::print("Index {}: [{}]\n", k, xk.transpose().eval());
-//    }
-//  }
+  fmt::print("\nOptimized Trajectory...\n");
+  Eigen::VectorXd xk(num_states);
+  Eigen::VectorXd uk(num_inputs);
+  Eigen::VectorXd yk(num_states);
+  for (int k = 0; k <= num_horizon; ++k) {
+    solver.GetState(xk.data(), k);
+    solver.GetDualDynamics(yk.data(), k);
+    if (k < num_horizon) {
+      solver.GetInput(uk.data(), k);
+      fmt::print("Index {}: [{}],\t\t [{}],\t\t [{}]\n", k, xk.transpose().eval(), uk.transpose().eval(), yk.transpose().eval());
+    } else {
+      fmt::print("Index {}: [{}], [{}]\n", k, xk.transpose().eval(), yk.transpose().eval());
+    }
+  }
 
   // Check that it moved closer to the goal
   Eigen::VectorXd x_0(num_states);
   Eigen::VectorXd x_N(num_states);
   solver.GetState(x_0.data(), 0);
-  solver.GetState(x_N.data(), num_horizon);
+  err = solver.GetState(x_N.data(), num_horizon);
+  PrintErrorCode(err);
   double dist_to_goal = (x_N - xf).norm();
+  fmt::print("x0 = [{}]\n", x0.transpose().eval());
+  fmt::print("xf = [{}]\n", xf.transpose().eval());
+  fmt::print("x_0 = [{}]\n", x_0.transpose().eval());
+  fmt::print("x_N = [{}]\n", x_N.transpose().eval());
   fmt::print("Distance to Goal: {}\n", dist_to_goal);
   EXPECT_LT(dist_to_goal, (x_0 - xf).norm());
+  EXPECT_GT(dist_to_goal, 1e-3);
 }
 
 TEST(DoubleIntegrator, SolveGoalConstraint) {

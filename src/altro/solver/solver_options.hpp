@@ -15,10 +15,13 @@ enum class Verbosity { Silent, Outer, Inner };
 
 struct AltroOptions {
   AltroOptions() = default;
+  int iterations_max = 200;
+
   double tol_cost = 1e-4;
   double tol_cost_intermediate = 1e-4;
   double tol_primal_feasibility = 1e-4;
   double tol_stationarity = 1e-4;
+  double tol_meritfun_gradient = 1e-8;
 //  double tol_complimentarity = 1e-4;
 //  double tol_dual_feasibility = 1e-4;
 

@@ -7,6 +7,8 @@
 
 #include "fmt/core.h"
 
+namespace altro {
+
 const char* ErrorCodeToString(ErrorCodes err) {
   switch (err) {
     case ErrorCodes::NoError:
@@ -75,6 +77,9 @@ const char* ErrorCodeToString(ErrorCodes err) {
     case ErrorCodes::LineSearchFailed:
       return "Line search failed to find a point satisfying the Strong Wolfe Conditions";
       break;
+    case ErrorCodes::MeritFunctionGradientTooSmall:
+      return "Merit function gradient under `opts.tol_meritfun_gradient`. Aborting line search";
+      break;
   }
   return nullptr;
 }
@@ -82,3 +87,5 @@ const char* ErrorCodeToString(ErrorCodes err) {
 void PrintErrorCode(ErrorCodes err) {
   fmt::print("Got error code {}: {}\n", static_cast<int>(err), ErrorCodeToString(err));
 }
+
+}  // namespace altro

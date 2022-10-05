@@ -75,14 +75,14 @@ ErrorCodes SolverImpl::Initialize() {
   //  trajectory_ = std::make_shared<TrajectoryXXd>(knotpoints);
   //  alsolver_.SetTrajectory(trajectory_);
   //
-  //  // Initialize knot point data
-  //  ErrorCodes err;
-  //  for (auto& data : data_) {
-  //    err = data.Initialize();
-  //    if (err != ErrorCodes::NoError) {
-  //      return err;
-  //    }
-  //  }
+  // Initialize knot point data
+  ErrorCodes err;
+  for (auto& data : data_) {
+    err = data.Initialize();
+    if (err != ErrorCodes::NoError) {
+      return err;
+    }
+  }
 
   // Initialize pointer arrays for TVLQR
   int N = horizon_length_;
@@ -153,12 +153,67 @@ void SolverImpl::SetCppSolverOptions() {
   }
 }
 
-void SolverImpl::Solve() {
-  SetCppSolverOptions();
-  alsolver_.Solve();
+ErrorCodes SolverImpl::Solve() {
+  // TODO: Copy options to line search
+  ErrorCodes err;
+
+  // Initial rollout
+  // TODO: make this a TVLQR rollout with affine terms enabled
+  OpenLoopRollout();
+  CopyTrajectory();  // make the rolled out trajectory the reference trajectory
+
+  // Start the iterations
+  double alpha;
+  double cost_initial = CalcCost();
+  fmt::print("STARTING ALTRO iLQR SOLVE....\n");
+  fmt::print("  Initial Cost: {}\n", cost_initial);
+  bool is_converged = false;
+  bool stop_iterating = false;
+
+  stats.status = SolveStatus::Unsolved;
+  int iter;
+  for (iter = 0; iter < opts.iterations_max; ++iter) {
+    CalcExpansions();
+    BackwardPass();
+    err = ForwardPass(&alpha);
+    CopyTrajectory();
+    a_float stationarity = Stationarity();
+
+    // Use stationarity as the termination criteria
+    a_float cost_decrease = phi0_ - phi_;
+    if (std::abs(stationarity) < opts.tol_stationarity) {
+      is_converged = true;
+      stop_iterating = true;
+      stats.status = SolveStatus::Success;
+    }
+    if (!is_converged && err == ErrorCodes::MeritFunctionGradientTooSmall) {
+      stats.status = SolveStatus::MeritFunGradientTooSmall;
+      stop_iterating = true;
+    }
+
+    // Print log
+    fmt::print("  iter = {:3d}, phi = {:8.4g} -> {:8.4g} ({:8.4g}), dphi = {:8.4g} -> {:8.4g}, alpha = {:10.4g}, stationarity = {:6.4e}\n",
+               iter, phi0_, phi_, cost_decrease, dphi0_, dphi_, alpha, stationarity);
+
+    if (stop_iterating) break;
+  }
+  if (!is_converged && iter == opts.iterations_max) {
+    stats.status = SolveStatus::MaxIterations;
+  }
+  fmt::print("ALTRO SOLVE FINISHED!\n");
+  //  SetCppSolverOptions();
+  //  alsolver_.Solve();
+  return ErrorCodes::NoError;
 }
 
-a_float SolverImpl::CalcCost() { return alsolver_.GetiLQRSolver().Cost(); }
+a_float SolverImpl::CalcCost() {
+  a_float cost = 0.0;
+  for (int k = 0; k <= horizon_length_; ++k) {
+    cost += data_[k].CalcCost();
+  }
+  return cost;
+  //  return alsolver_.GetiLQRSolver().Cost();
+}
 
 ErrorCodes SolverImpl::BackwardPass() {
   int N = horizon_length_;
@@ -190,6 +245,7 @@ a_float SolverImpl::Stationarity() {
   int N = horizon_length_;
   a_float res_x = 0;
   a_float res_u = 0;
+  CalcExpansions();  // TODO: avoid this call
 
   for (int k = 0; k < N; ++k) {
     KnotPointData& z = data_[k];
@@ -214,8 +270,8 @@ ErrorCodes SolverImpl::MeritFunction(a_float alpha, a_float* phi, a_float* dphi)
   if (phi == nullptr) return ErrorCodes::InvalidPointer;
   int N = horizon_length_;
   bool calc_derivative = dphi != nullptr;
-  a_float phi_ = 0;
-  a_float dphi_ = 0;
+  phi_ = 0;
+  dphi_ = 0;
 
   // Set initial state
   data_[0].x_ = initial_state_;
@@ -226,9 +282,10 @@ ErrorCodes SolverImpl::MeritFunction(a_float alpha, a_float* phi, a_float* dphi)
     // Compute the control
     KnotPointData& z = data_[k];
     KnotPointData& zn = data_[k + 1];
-    Vector dx = z.x_ - z.x;
+    Vector dx = z.x_ - z.x;  // TODO: avoid these temporary arrays
     Vector du = -z.K_ * dx + alpha * z.d_;
     z.u_ = z.u + du;
+    z.y_ = z.P_ * dx + z.p_;
 
     // Simulate the system forward
     z.CalcDynamics(zn.x_.data());
@@ -252,12 +309,14 @@ ErrorCodes SolverImpl::MeritFunction(a_float alpha, a_float* phi, a_float* dphi)
   }
 
   // Terminal knot point
-  double cost = data_[N].CalcCost();
+  KnotPointData& z = data_[N];
+  double cost = z.CalcCost();
   phi_ += cost;
+  Vector dx = z.x_ - z.x;
+  z.y_ = z.P_ * dx + z.p_;
   *phi = phi_;
 
   if (calc_derivative) {
-    KnotPointData& z = data_[N];
     z.CalcCostGradient();
     dphi_ += z.lx_.dot(z.dx_da_);
     *dphi = dphi_;
@@ -289,11 +348,17 @@ ErrorCodes SolverImpl::ForwardPass(a_float* alpha) {
   auto phi = [this](double alpha, double* phi, double* dphi) {
     this->MeritFunction(alpha, phi, dphi);
   };
-  double phi0, dphi0;
-  phi(0.0, &phi0, &dphi0);
-  ls_.SetOptimalityTolerances(1e-4, 0.1);
+  phi(0.0, &phi0_, &dphi0_);
+  if (abs(dphi0_) < opts.tol_meritfun_gradient) {
+    *alpha = 0.0;
+    return ErrorCodes::MeritFunctionGradientTooSmall;
+  }
+
+//  ls_.SetOptimalityTolerances(1e-4, 0.1);
+//  ls_.SetVerbose(true);
   ls_.try_cubic_first = true;
-  *alpha = ls_.Run(phi, 1.0, phi0, dphi0);
+  *alpha = ls_.Run(phi, 1.0, phi0_, dphi0_);
+  ls_.GetFinalMeritValues(&phi_, &dphi_);
   auto res = ls_.GetStatus();
   if (std::isnan(*alpha) || res != linesearch::CubicLineSearch::ReturnCodes::MINIMUM_FOUND) {
     // TODO: Provide a more fine-grained return code

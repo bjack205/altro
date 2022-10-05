@@ -17,10 +17,12 @@ constexpr int LastIndex = -1;
 
 enum class SolveStatus {
   Success,
+  Unsolved,
   MaxIterations,
   MaxObjectiveExceeded,
   StateOutOfBounds,
-  InputOutOfBounds
+  InputOutOfBounds,
+  MeritFunGradientTooSmall,
 };
 
 using CallbackFunction = std::function<void(const ALTROSolver*)>;

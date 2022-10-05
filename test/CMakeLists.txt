@@ -34,6 +34,7 @@ target_link_libraries(double_integrator_test
   PRIVATE
   gtest_main
   altro::altro
+  altro::impl
   fmt::fmt
   Eigen3::Eigen
 )

@@ -34,6 +34,7 @@ class CubicLineSearch {
   int Iterations() const { return n_iters_; }
   const char* StatusToString();
   bool SetVerbose(bool verbose);
+  void GetFinalMeritValues(double *phi, double *dphi) const;
 
 
   // Options
@@ -51,9 +52,11 @@ class CubicLineSearch {
   double c2_ = 0.9;
   int n_iters_;
   double phi0_;
+  double phi_;
   double phi_lo_;
   double phi_hi_;
   double dphi0_;
+  double dphi_;
   double dphi_lo_;
   double dphi_hi_;
   bool sufficient_decrease_;

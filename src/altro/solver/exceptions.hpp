@@ -14,6 +14,8 @@
 #define ALTRO_THROW(x) return ((x).Errno());
 #endif
 
+namespace altro {
+
 enum class ErrorCodes {
   NoError,
   StateDimUnknown,
@@ -36,6 +38,7 @@ enum class ErrorCodes {
   InvalidPointer,
   BackwardPassFailed,
   LineSearchFailed,
+  MeritFunctionGradientTooSmall,
   FileError,
 };
 
@@ -55,3 +58,5 @@ class AltroErrorException : public std::runtime_error {
  private:
   ErrorCodes code_;
 };
+
+}  // namespace altro

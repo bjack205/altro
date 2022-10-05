@@ -302,7 +302,7 @@ class ALTROSolver {
   /**********************************************
    * Initialization
    **********************************************/
-  void Initialize();
+  ErrorCodes Initialize();
 
   /**
    * @brief Set the initial state
