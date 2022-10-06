@@ -466,4 +466,18 @@ ErrorCodes ALTROSolver::AssertTimestepsArePositive(std::string msg) const {
   return ErrorCodes::NoError;
 }
 
+void ALTROSolver::PrintStateTrajectory() const {
+  fmt::print("STATE TRAJECTORY:\n");
+  for (int k = 0; k <= GetHorizonLength(); ++k) {
+    fmt::print(" x[{:03d}]: [{}]\n", k, solver_->data_[k].x_.transpose().eval());
+  }
+}
+
+void ALTROSolver::PrintInputTrajectory() const {
+  fmt::print("INPUT TRAJECTORY:\n");
+  for (int k = 0; k < GetHorizonLength(); ++k) {
+    fmt::print(" u[{:03d}]: [{}]\n", k, solver_->data_[k].u_.transpose().eval());
+  }
+}
+
 }  // namespace altro

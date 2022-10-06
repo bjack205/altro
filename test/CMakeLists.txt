@@ -38,3 +38,15 @@ target_link_libraries(double_integrator_test
   fmt::fmt
   Eigen3::Eigen
 )
+
+add_executable(pendulum_test
+  pendulum_test.cpp
+)
+target_link_libraries(pendulum_test
+  PRIVATE
+  gtest_main
+  altro::altro
+  fmt::fmt
+  Eigen3::Eigen
+  altro::test_utils
+)

@@ -411,6 +411,12 @@ class ALTROSolver {
   ErrorCodes GetFeedbackGain(a_float* K, int k) const;
   ErrorCodes GetFeedforwardGain(a_float* d, int k) const;
 
+  /**********************************************
+   * Printers
+   **********************************************/
+  void PrintStateTrajectory() const;
+  void PrintInputTrajectory() const;
+
   std::unique_ptr<SolverImpl> solver_;
 
  private:

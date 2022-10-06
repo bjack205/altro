@@ -16,3 +16,10 @@ template <class T, int N1, int N2>
 struct fmt::formatter<Eigen::WithFormat<Eigen::Matrix<T, N1, N2>>> : public fmt::ostream_formatter {
 };
 
+namespace altro {
+template <class T>
+void PrintVectorRow(std::string label, T x) {
+  fmt::print("{}[{}]\n", label, x.transpose().eval());
+}
+}  // namespace altro
+

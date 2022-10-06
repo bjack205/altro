@@ -11,7 +11,7 @@
 
 namespace altro {
 
-enum class Verbosity { Silent, Outer, Inner };
+enum class Verbosity { Silent, Outer, Inner, LineSearch };
 
 struct AltroOptions {
   AltroOptions() = default;

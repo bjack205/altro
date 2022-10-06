@@ -150,6 +150,9 @@ void SolverImpl::SetCppSolverOptions() {
     case Verbosity::Inner:
       ilqropts.verbose = LogLevel::kInner;
       break;
+    case Verbosity::LineSearch:
+      ilqropts.verbose = LogLevel::kInner;
+      break;
   }
 }
 
@@ -200,6 +203,7 @@ ErrorCodes SolverImpl::Solve() {
   if (!is_converged && iter == opts.iterations_max) {
     stats.status = SolveStatus::MaxIterations;
   }
+  stats.iterations = iter + 1;
   fmt::print("ALTRO SOLVE FINISHED!\n");
   //  SetCppSolverOptions();
   //  alsolver_.Solve();
@@ -337,7 +341,8 @@ ErrorCodes SolverImpl::CopyTrajectory() {
 
 ErrorCodes SolverImpl::CalcExpansions() {
   // TODO: do this in parallel
-  for (auto& z : data_) {
+  for (int k = 0; k <= horizon_length_; ++k) {
+    KnotPointData& z = data_[k];
     z.CalcDynamicsExpansion();
     z.CalcCostExpansion(true);
   }
@@ -354,8 +359,7 @@ ErrorCodes SolverImpl::ForwardPass(a_float* alpha) {
     return ErrorCodes::MeritFunctionGradientTooSmall;
   }
 
-//  ls_.SetOptimalityTolerances(1e-4, 0.1);
-//  ls_.SetVerbose(true);
+  ls_.SetVerbose(opts.verbose == Verbosity::LineSearch);
   ls_.try_cubic_first = true;
   *alpha = ls_.Run(phi, 1.0, phi0_, dphi0_);
   ls_.GetFinalMeritValues(&phi_, &dphi_);
