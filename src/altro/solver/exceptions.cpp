@@ -80,6 +80,9 @@ const char* ErrorCodeToString(ErrorCodes err) {
     case ErrorCodes::MeritFunctionGradientTooSmall:
       return "Merit function gradient under `opts.tol_meritfun_gradient`. Aborting line search";
       break;
+    case ErrorCodes::InvalidBoundConstraint:
+      return "Invalid bound constraint. Make sure all upper bounds are greater than or equal to the lower bounds";
+      break;
   }
   return nullptr;
 }
