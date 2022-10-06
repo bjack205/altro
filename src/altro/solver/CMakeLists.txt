@@ -19,6 +19,9 @@ add_library(altro_impl STATIC
 
   exceptions.hpp
   exceptions.cpp
+
+  cones.cpp
+  cones.hpp
 )
 target_link_libraries(altro_impl
   PUBLIC
