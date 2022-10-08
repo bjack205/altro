@@ -5,13 +5,15 @@
 
 #include "knotpoint_data.hpp"
 
+#include "cones.hpp"
+
 namespace altro {
 
 /////////////////////////////////////////////
 // Constructor
 /////////////////////////////////////////////
-KnotPointData::KnotPointData(bool is_terminal) : is_terminal_(is_terminal) {}
-
+KnotPointData::KnotPointData(int index, bool is_terminal)
+    : knot_point_index_(index), is_terminal_(is_terminal) {}
 
 /////////////////////////////////////////////
 // Setters
@@ -89,7 +91,6 @@ ErrorCodes KnotPointData::SetDiagonalCost(int n, int m, const a_float *Qdiag, co
   q_ = Eigen::Map<const Vector>(q, n);
   c_ = c;
 
-
   if (!IsTerminalKnotPoint()) {
     R_ = Vector::Zero(m * m);
     R_.head(m) = Eigen::Map<const Vector>(Rdiag, m);
@@ -112,15 +113,21 @@ ErrorCodes KnotPointData::SetCostFunction(CostFunction cost_function, CostGradie
   return ErrorCodes::NoError;
 }
 
-ErrorCodes KnotPointData::SetLinearDynamics(int n2, int n, int m, const altro::a_float *A, const altro::a_float *B, const altro::a_float *f) {
+ErrorCodes KnotPointData::SetLinearDynamics(int n2, int n, int m, const altro::a_float *A,
+                                            const altro::a_float *B, const altro::a_float *f) {
   if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOpAtTeriminalKnotPoint;
   if (num_states_ > 0 && n != num_states_) return ErrorCodes::DimensionMismatch;
   if (num_inputs_ > 0 && m != num_inputs_) return ErrorCodes::DimensionMismatch;
   if (num_next_state_ > 0 && n2 != num_next_state_) return ErrorCodes::DimensionMismatch;
+  num_states_ = n;
+  num_inputs_ = m;
+  num_next_state_ = n2;
 
   A_ = Eigen::Map<const Matrix>(A, n2, n);
   B_ = Eigen::Map<const Matrix>(B, n2, m);
-  affine_term_ = Eigen::Map<const Vector>(f, n2);
+  if (f != nullptr) {
+    affine_term_ = Eigen::Map<const Vector>(f, n2);
+  }
 
   dynamics_is_set_ = true;
   dynamics_are_linear_ = true;
@@ -142,20 +149,37 @@ ErrorCodes KnotPointData::SetConstraint(ConstraintFunction constraint_function,
                                         ConstraintJacobian constraint_jacobian, int dim,
                                         ConstraintType constraint_type, std::string label) {
   if (NumConstraints() == kMaxConstraints) {
-    return ErrorCodes::MaxConstraintsExceeded;
+    return ALTRO_THROW(
+        fmt::format("Maximum number of constraint exceeded at knot point {}", knot_point_index_),
+        ErrorCodes::MaxConstraintsExceeded);
   }
 
   // QUESTION: should we allow constraints with 0 length?
   if (dim <= 0) {
-    return ErrorCodes::InvalidConstraintDim;
+    return ALTRO_THROW(fmt::format("Got a non-positive constraint dimension of {} at knot point {}",
+                                   dim, knot_point_index_),
+                       ErrorCodes::InvalidConstraintDim);
   }
 
   constraint_function_.emplace_back(std::move(constraint_function));
   constraint_jacobian_.emplace_back(std::move(constraint_jacobian));
   constraint_dims_.emplace_back(dim);
-  constraint_type_.emplace_back(std::move(constraint_type));
+  constraint_type_.emplace_back(constraint_type);
   constraint_label_.emplace_back(std::move(label));
 
+  return ErrorCodes::NoError;
+}
+
+ErrorCodes KnotPointData::SetPenalty(a_float rho) {
+  if (rho <= 0) {
+    return ALTRO_THROW(
+        fmt::format("Got a non-positive penalty of {} at index {}", rho, knot_point_index_),
+        ErrorCodes::NonPositivePenalty);
+  }
+
+  for (int j = 0; j < NumConstraints(); ++j) {
+    rho_[j] = rho;
+  }
   return ErrorCodes::NoError;
 }
 
@@ -198,6 +222,21 @@ ErrorCodes KnotPointData::Initialize() {
   dynamics_val_ = Vector::Zero(n2);
   dynamics_dual_ = Vector::Zero(n2);
 
+  // Bound Constraints
+  a_float inf = std::numeric_limits<a_float>::infinity();
+  x_hi_ = Vector::Constant(n, inf);
+  x_lo_ = Vector::Constant(n, -inf);
+  u_hi_ = Vector::Constant(n, inf);
+  u_lo_ = Vector::Constant(n, -inf);
+
+  x_hi_inds_ = VectorXi::Constant(n, -1);
+  x_lo_inds_ = VectorXi::Constant(n, -1);
+  x_eq_inds_ = VectorXi::Constant(n, -1);
+
+  u_hi_inds_ = VectorXi::Constant(m, -1);
+  u_lo_inds_ = VectorXi::Constant(m, -1);
+  u_eq_inds_ = VectorXi::Constant(m, -1);
+
   c_x_hi_ = Vector::Zero(n);
   c_x_lo_ = Vector::Zero(n);
   c_u_hi_ = Vector::Zero(m);
@@ -210,14 +249,30 @@ ErrorCodes KnotPointData::Initialize() {
 
   // Constraint data
   int num_constraints = NumConstraints();
-  constraint_jac_.reserve(num_constraints);
   constraint_val_.reserve(num_constraints);
-  constraint_dual_.reserve(num_constraints);
+  constraint_jac_.reserve(num_constraints);
+  constraint_hess_.reserve(num_constraints);
+  z_.reserve(num_constraints);
+  z_est_.reserve(num_constraints);
+  z_proj_.reserve(num_constraints);
+  proj_jvp_.reserve(num_constraints);
+  proj_jac_.reserve(num_constraints);
+  proj_hess_.reserve(num_constraints);
+  jac_tmp_.reserve(num_constraints);
+  rho_.reserve(num_constraints);
   for (int i = 0; i < num_constraints; ++i) {
     int p = constraint_dims_[i];
-    constraint_jac_.emplace_back(Matrix::Zero(p, n + m));
     constraint_val_.emplace_back(Vector::Zero(p));
-    constraint_dual_.emplace_back(Vector::Zero(p));
+    constraint_jac_.emplace_back(Matrix::Zero(p, n + m));
+    constraint_hess_.emplace_back(Matrix::Zero(n + m, n + m));
+    z_.emplace_back(Vector::Zero(p));
+    z_est_.emplace_back(Vector::Zero(p));
+    z_proj_.emplace_back(Vector::Zero(p));
+    proj_jvp_.emplace_back(Vector::Zero(p));
+    proj_jac_.emplace_back(Matrix::Zero(p, p));
+    proj_hess_.emplace_back(Matrix::Zero(p, p));
+    jac_tmp_.emplace_back(Matrix::Zero(p, n + m));
+    rho_.emplace_back(1.0);
   }
 
   // Backward pass data
@@ -311,49 +366,132 @@ ErrorCodes KnotPointData::CalcDynamicsExpansion() {
   return ErrorCodes::NoError;
 }
 
-//ErrorCodes KnotPointData::CalcActionValueExpansion(const altro::KnotPointData &next) {
-//  if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOpAtTeriminalKnotPoint;
-//  // TODO: allocate storage for the temporary variables here
-//  Qxx_ = lxx_ + A_.transpose() * next.P_ * A_;
-//  Quu_ = luu_ + B_.transpose() * next.P_ * B_;
-//  Qux_ = lux_ + B_.transpose() * next.P_ * A_;
-//  Qx_ = lx_ + A_.transpose() * (next.P_ * f_ + next.p_);
-//  Qu_ = lu_ + B_.transpose() * (next.P_ * f_ + next.p_);
-//  return ErrorCodes::NoError;
-//}
-//
-//ErrorCodes KnotPointData::CalcGains() {
-//  if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOpAtTeriminalKnotPoint;
-//  Quu_fact.compute(Quu_);
-//  // TODO: combine these solves into 1
-//  K_ = Qux_;
-//  d_ = Qu_;
-//  d_ *= -1;
-//  Quu_fact.solveInPlace(K_);
-//  Quu_fact.solveInPlace(d_);
-//  if (Quu_fact.info() != Eigen::Success) {
-//    return ErrorCodes::CholeskyFailed;
-//  }
-//  return ErrorCodes::NoError;
-//}
-//
-//ErrorCodes KnotPointData::CalcCostToGo() {
-//  if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOpAtTeriminalKnotPoint;
-//  P_ = Qxx_ + K_.transpose() * Quu_ * K_ - K_.transpose() * Qux_ - Qux_.transpose() * K_;
-//  p_ = Qx_ - K_.transpose() * Quu_ * d_ - K_.transpose() * Qu_ + Qux_.transpose() * d_;
-//  P_ = 0.5 * (P_ + P_.transpose());
-//  delta_V_[0] = d_.dot(Qu_);
-//  delta_V_[1] = 0.5 * d_.dot(Quu_ * d_);
-//  return ErrorCodes::NoError;
-//}
-//
-//ErrorCodes KnotPointData::CalcTerminalCostToGo() {
-//  if (!IsTerminalKnotPoint()) return ErrorCodes::OpOnlyValidAtTerminalKnotPoint;
-//  P_ = lxx_;
-//  p_ = lx_;
-//  return ErrorCodes::NoError;
-//}
+ErrorCodes KnotPointData::CalcConstraints() {
+  int num_con = NumConstraints();
+  for (int j = 0; j < num_con; ++j) {
+    constraint_function_[j](constraint_val_[j].data(), x_.data(), u_.data());
+  }
+  return ErrorCodes::NoError;
+}
 
+ErrorCodes KnotPointData::CalcConstraintExpansions() {
+  int num_con = NumConstraints();
+  for (int j = 0; j < num_con; ++j) {
+    constraint_jacobian_[j](constraint_jac_[j].data(), x_.data(), u_.data());
+  }
+  return ErrorCodes::NoError;
+}
+
+/////////////////////////////////////////////
+// Augmented Lagrangian Cost
+/////////////////////////////////////////////
+a_float KnotPointData::CalcConstraintCosts() {
+  // Assumes constraints have already been evaluated
+  int num_con = NumConstraints();
+  a_float cost = 0;
+  for (int j = 0; j < num_con; ++j) {
+    ConstraintType dual_cone = DualCone(constraint_type_[j]);
+
+    // Calculate estimated dual
+    z_est_[j].noalias() = z_[j] - rho_[j] * constraint_val_[j];
+
+    // Project the dual into the dual cone
+    ConicProjection(dual_cone, constraint_dims_[j], z_est_[j].data(), z_proj_[j].data());
+
+    // Calculate the cost
+    cost += z_proj_[j].squaredNorm() / (2 * rho_[j]);
+  }
+  return cost;
+}
+
+ErrorCodes KnotPointData::CalcConstraintCostGradients() {
+  // Assumes the constraints and Jacobians have been evaluated
+  // Assumes the projected duals have already been calculated
+  int num_con = NumConstraints();
+  for (int j = 0; j < num_con; ++j) {
+    // TODO: evaluate the Jacobian-transpose vector product directly
+    ConstraintType dual_cone = DualCone(constraint_type_[j]);
+    ConicProjectionJacobian(dual_cone, constraint_dims_[j], z_est_[j].data(), proj_jac_[j].data());
+    proj_jvp_[j].noalias() = proj_jac_[j].transpose() * z_proj_[j];
+    lx_.noalias() -= constraint_jac_[j].leftCols(num_states_).transpose() * proj_jvp_[j];
+    lu_.noalias() -= constraint_jac_[j].rightCols(num_inputs_).transpose() * proj_jvp_[j];
+  }
+  return ErrorCodes::NoError;
+}
+
+ErrorCodes KnotPointData::CalcConstraintCostHessians() {
+  // Assumes the constraints and Jacobians have been evaluated
+  // Assumes the projected duals have already been calculated
+  // Assumes the projection Jacobian has already been calculated
+  int num_con = NumConstraints();
+  for (int j = 0; j < num_con; ++j) {
+    // TODO: evaluate the Jacobian-transpose vector product directly
+    ConstraintType dual_cone = DualCone(constraint_type_[j]);
+    int p = constraint_dims_[j];
+
+    // Gauss-Newton approximation of the Constraint Hessian information
+    jac_tmp_[j].noalias() = proj_jac_[j] * constraint_jac_[j];
+    constraint_hess_[j].noalias() = rho_[j] * jac_tmp_[j].transpose() * jac_tmp_[j];
+
+    // Jacobian of Jacobian-transpose vector product
+    if (!ConicProjectionIsLinear(dual_cone)) {
+      ConicProjectionHessian(dual_cone, p, z_est_[j].data(), z_proj_[j].data(), proj_hess_[j].data());
+      jac_tmp_[j].noalias() = proj_hess_[j] * constraint_jac_[j];
+      constraint_hess_[j].noalias() += rho_[j] * constraint_jac_[j].transpose() * jac_tmp_[j];
+    }
+
+    // Add to expansion
+    int n = num_states_;
+    int m = num_inputs_;
+    lxx_ += constraint_hess_[j].topLeftCorner(n, n);
+    luu_ += constraint_hess_[j].bottomRightCorner(m, m);
+    lux_ += constraint_hess_[j].bottomLeftCorner(m, n);
+  }
+  return ErrorCodes::NoError;
+}
+
+// ErrorCodes KnotPointData::CalcActionValueExpansion(const altro::KnotPointData &next) {
+//   if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOpAtTeriminalKnotPoint;
+//   // TODO: allocate storage for the temporary variables here
+//   Qxx_ = lxx_ + A_.transpose() * next.P_ * A_;
+//   Quu_ = luu_ + B_.transpose() * next.P_ * B_;
+//   Qux_ = lux_ + B_.transpose() * next.P_ * A_;
+//   Qx_ = lx_ + A_.transpose() * (next.P_ * f_ + next.p_);
+//   Qu_ = lu_ + B_.transpose() * (next.P_ * f_ + next.p_);
+//   return ErrorCodes::NoError;
+// }
+//
+// ErrorCodes KnotPointData::CalcGains() {
+//   if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOpAtTeriminalKnotPoint;
+//   Quu_fact.compute(Quu_);
+//   // TODO: combine these solves into 1
+//   K_ = Qux_;
+//   d_ = Qu_;
+//   d_ *= -1;
+//   Quu_fact.solveInPlace(K_);
+//   Quu_fact.solveInPlace(d_);
+//   if (Quu_fact.info() != Eigen::Success) {
+//     return ErrorCodes::CholeskyFailed;
+//   }
+//   return ErrorCodes::NoError;
+// }
+//
+// ErrorCodes KnotPointData::CalcCostToGo() {
+//   if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOpAtTeriminalKnotPoint;
+//   P_ = Qxx_ + K_.transpose() * Quu_ * K_ - K_.transpose() * Qux_ - Qux_.transpose() * K_;
+//   p_ = Qx_ - K_.transpose() * Quu_ * d_ - K_.transpose() * Qu_ + Qux_.transpose() * d_;
+//   P_ = 0.5 * (P_ + P_.transpose());
+//   delta_V_[0] = d_.dot(Qu_);
+//   delta_V_[1] = 0.5 * d_.dot(Quu_ * d_);
+//   return ErrorCodes::NoError;
+// }
+//
+// ErrorCodes KnotPointData::CalcTerminalCostToGo() {
+//   if (!IsTerminalKnotPoint()) return ErrorCodes::OpOnlyValidAtTerminalKnotPoint;
+//   P_ = lxx_;
+//   p_ = lx_;
+//   return ErrorCodes::NoError;
+// }
 
 a_float KnotPointData::CalcOriginalCost() {
   a_float J = 0.0;
@@ -467,4 +605,23 @@ ErrorCodes KnotPointData::CalcCostGradient() {
   // TODO: add constraint cost gradient
   return ErrorCodes::NoError;
 }
+
+ErrorCodes KnotPointData::SetStateUpperBound(const a_float *x_max) {
+  for (int i = 0; i < num_states_; ++i) {
+    if (x_max[i] < x_lo_[i]) {
+      return ALTRO_THROW(fmt::format("Invalid state upper bound at index {}: {} not higher than {}",
+                                     i, x_max[i], x_lo_[i]),
+                         ErrorCodes::InvalidBoundConstraint);
+    }
+  }
+  return ErrorCodes::MaxConstraintsExceeded;
+}
+
+ErrorCodes KnotPointData::SetStateLowerBound(const a_float *x_min) {
+  for (int i = 0; i < num_states_; ++i) {
+    x_lo_[i] = x_min[i];
+  }
+  return ErrorCodes::MaxConstraintsExceeded;
+}
+
 }  // namespace altro

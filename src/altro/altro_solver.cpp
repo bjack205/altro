@@ -406,7 +406,6 @@ ErrorCodes ALTROSolver::CheckKnotPointIndices(int k_start, int &k_stop,
   if (k_stop <= 0) k_stop = k_start + 1;
 
   // Check indices are valid
-  int N = GetHorizonLength();
   if (k_start < 0 || k_start > terminal_index) {
     return ALTRO_THROW(
         fmt::format("Knot point index out of range. Should be in range [{} - {}], got {}.", 0,

@@ -45,6 +45,7 @@ enum class ErrorCodes {
   LineSearchFailed,
   MeritFunctionGradientTooSmall,
   InvalidBoundConstraint,
+  NonPositivePenalty,
   FileError,
 };
 

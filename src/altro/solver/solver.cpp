@@ -50,9 +50,9 @@ SolverImpl::SolverImpl(int N)
   trajectory_ = std::make_shared<altro::TrajectoryXXd>(traj);
 
   // Initialize knot point data
-  for (int i = 0; i <= N; ++i) {
-    bool is_terminal = (i == N);
-    data_.emplace_back(is_terminal);
+  for (int k = 0; k <= N; ++k) {
+    bool is_terminal = (k == N);
+    data_.emplace_back(k, is_terminal);
   }
 }
 
@@ -156,60 +156,6 @@ void SolverImpl::SetCppSolverOptions() {
   }
 }
 
-ErrorCodes SolverImpl::Solve() {
-  // TODO: Copy options to line search
-  ErrorCodes err;
-
-  // Initial rollout
-  // TODO: make this a TVLQR rollout with affine terms enabled
-  OpenLoopRollout();
-  CopyTrajectory();  // make the rolled out trajectory the reference trajectory
-
-  // Start the iterations
-  double alpha;
-  double cost_initial = CalcCost();
-  fmt::print("STARTING ALTRO iLQR SOLVE....\n");
-  fmt::print("  Initial Cost: {}\n", cost_initial);
-  bool is_converged = false;
-  bool stop_iterating = false;
-
-  stats.status = SolveStatus::Unsolved;
-  int iter;
-  for (iter = 0; iter < opts.iterations_max; ++iter) {
-    CalcExpansions();
-    BackwardPass();
-    err = ForwardPass(&alpha);
-    CopyTrajectory();
-    a_float stationarity = Stationarity();
-
-    // Use stationarity as the termination criteria
-    a_float cost_decrease = phi0_ - phi_;
-    if (std::abs(stationarity) < opts.tol_stationarity) {
-      is_converged = true;
-      stop_iterating = true;
-      stats.status = SolveStatus::Success;
-    }
-    if (!is_converged && err == ErrorCodes::MeritFunctionGradientTooSmall) {
-      stats.status = SolveStatus::MeritFunGradientTooSmall;
-      stop_iterating = true;
-    }
-
-    // Print log
-    fmt::print("  iter = {:3d}, phi = {:8.4g} -> {:8.4g} ({:8.4g}), dphi = {:8.4g} -> {:8.4g}, alpha = {:10.4g}, stationarity = {:6.4e}\n",
-               iter, phi0_, phi_, cost_decrease, dphi0_, dphi_, alpha, stationarity);
-
-    if (stop_iterating) break;
-  }
-  if (!is_converged && iter == opts.iterations_max) {
-    stats.status = SolveStatus::MaxIterations;
-  }
-  stats.iterations = iter + 1;
-  fmt::print("ALTRO SOLVE FINISHED!\n");
-  //  SetCppSolverOptions();
-  //  alsolver_.Solve();
-  return ErrorCodes::NoError;
-}
-
 a_float SolverImpl::CalcCost() {
   a_float cost = 0.0;
   for (int k = 0; k <= horizon_length_; ++k) {
@@ -219,23 +165,42 @@ a_float SolverImpl::CalcCost() {
   //  return alsolver_.GetiLQRSolver().Cost();
 }
 
-ErrorCodes SolverImpl::BackwardPass() {
-  int N = horizon_length_;
-
-  a_float reg = 0.0;
-  bool linear_only_update = false;
-  bool is_diag = false;
-  int res = tvlqr_BackwardPass(nx_.data(), nu_.data(), N, A_.data(), B_.data(), f_.data(),
-                               lxx_.data(), luu_.data(), lux_.data(), lx_.data(), lu_.data(), reg,
-                               K_.data(), d_.data(), P_.data(), p_.data(), delta_V_, Qxx_.data(),
-                               Quu_.data(), Qux_.data(), Qx_.data(), Qu_.data(), Qxx_tmp_.data(),
-                               Quu_tmp_.data(), Qux_tmp_.data(), Qx_tmp_.data(), Qu_tmp_.data(),
-                               linear_only_update, is_diag);
-  if (res != TVLQR_SUCCESS) {
-    return ErrorCodes::BackwardPassFailed;
-  } else {
-    return ErrorCodes::NoError;
+ErrorCodes SolverImpl::OpenLoopRollout() {
+  if (!IsInitialized()) return ErrorCodes::SolverNotInitialized;
+  data_[0].x_ = initial_state_;
+  for (int k = 0; k < horizon_length_; ++k) {
+    data_[k].CalcDynamics(data_[k + 1].x_.data());
   }
+  return ErrorCodes::NoError;
+}
+
+
+ErrorCodes SolverImpl::CopyTrajectory() {
+  for (int k = 0; k <= horizon_length_; ++k) {
+    data_[k].x = data_[k].x_;
+    data_[k].y = data_[k].y_;
+    if (k < horizon_length_) {
+      data_[k].u = data_[k].u_;
+    }
+  }
+  return ErrorCodes::NoError;
+}
+
+ErrorCodes SolverImpl::CalcExpansions() {
+  // TODO: do this in parallel
+  for (int k = 0; k <= horizon_length_; ++k) {
+    KnotPointData& z = data_[k];
+    z.CalcDynamicsExpansion();
+    z.CalcCostExpansion(true);
+  }
+  return ErrorCodes::NoError;
+}
+
+ErrorCodes SolverImpl::CalcCostGradient() {
+  for (auto z = data_.begin(); z < data_.end(); ++z) {
+    z->CalcCostExpansion(true);
+  }
+  return ErrorCodes::NoError;
 }
 
 ErrorCodes SolverImpl::LinearRollout() {
@@ -263,9 +228,25 @@ a_float SolverImpl::Stationarity() {
   return std::max(res_x, res_u);
 }
 
-ErrorCodes SolverImpl::CalcCostGradient() {
-  for (auto z = data_.begin(); z < data_.end(); ++z) {
-    z->CalcCostExpansion(true);
+
+ErrorCodes SolverImpl::ForwardPass(a_float* alpha) {
+  auto phi = [this](double alpha, double* phi, double* dphi) {
+    this->MeritFunction(alpha, phi, dphi);
+  };
+  phi(0.0, &phi0_, &dphi0_);
+  if (abs(dphi0_) < opts.tol_meritfun_gradient) {
+    *alpha = 0.0;
+    return ErrorCodes::MeritFunctionGradientTooSmall;
+  }
+
+  ls_.SetVerbose(opts.verbose == Verbosity::LineSearch);
+  ls_.try_cubic_first = true;
+  *alpha = ls_.Run(phi, 1.0, phi0_, dphi0_);
+  ls_.GetFinalMeritValues(&phi_, &dphi_);
+  auto res = ls_.GetStatus();
+  if (std::isnan(*alpha) || res != linesearch::CubicLineSearch::ReturnCodes::MINIMUM_FOUND) {
+    // TODO: Provide a more fine-grained return code
+    return ErrorCodes::LineSearchFailed;
   }
   return ErrorCodes::NoError;
 }
@@ -328,55 +309,77 @@ ErrorCodes SolverImpl::MeritFunction(a_float alpha, a_float* phi, a_float* dphi)
   return ErrorCodes::NoError;
 }
 
-ErrorCodes SolverImpl::CopyTrajectory() {
-  for (int k = 0; k <= horizon_length_; ++k) {
-    data_[k].x = data_[k].x_;
-    data_[k].y = data_[k].y_;
-    if (k < horizon_length_) {
-      data_[k].u = data_[k].u_;
+ErrorCodes SolverImpl::BackwardPass() {
+  int N = horizon_length_;
+
+  a_float reg = 0.0;
+  bool linear_only_update = false;
+  bool is_diag = false;
+  int res = tvlqr_BackwardPass(nx_.data(), nu_.data(), N, A_.data(), B_.data(), f_.data(),
+                               lxx_.data(), luu_.data(), lux_.data(), lx_.data(), lu_.data(), reg,
+                               K_.data(), d_.data(), P_.data(), p_.data(), delta_V_, Qxx_.data(),
+                               Quu_.data(), Qux_.data(), Qx_.data(), Qu_.data(), Qxx_tmp_.data(),
+                               Quu_tmp_.data(), Qux_tmp_.data(), Qx_tmp_.data(), Qu_tmp_.data(),
+                               linear_only_update, is_diag);
+  if (res != TVLQR_SUCCESS) {
+    return ErrorCodes::BackwardPassFailed;
+  } else {
+    return ErrorCodes::NoError;
+  }
+}
+
+ErrorCodes SolverImpl::Solve() {
+  // TODO: Copy options to line search
+  ErrorCodes err;
+
+  // Initial rollout
+  // TODO: make this a TVLQR rollout with affine terms enabled
+  OpenLoopRollout();
+  CopyTrajectory();  // make the rolled out trajectory the reference trajectory
+
+  // Start the iterations
+  double alpha;
+  double cost_initial = CalcCost();
+  fmt::print("STARTING ALTRO iLQR SOLVE....\n");
+  fmt::print("  Initial Cost: {}\n", cost_initial);
+  bool is_converged = false;
+  bool stop_iterating = false;
+
+  stats.status = SolveStatus::Unsolved;
+  int iter;
+  for (iter = 0; iter < opts.iterations_max; ++iter) {
+    CalcExpansions();
+    BackwardPass();
+    err = ForwardPass(&alpha);
+    CopyTrajectory();
+    a_float stationarity = Stationarity();
+
+    // Use stationarity as the termination criteria
+    a_float cost_decrease = phi0_ - phi_;
+    if (std::abs(stationarity) < opts.tol_stationarity) {
+      is_converged = true;
+      stop_iterating = true;
+      stats.status = SolveStatus::Success;
     }
+    if (!is_converged && err == ErrorCodes::MeritFunctionGradientTooSmall) {
+      stats.status = SolveStatus::MeritFunGradientTooSmall;
+      stop_iterating = true;
+    }
+
+    // Print log
+    fmt::print("  iter = {:3d}, phi = {:8.4g} -> {:8.4g} ({:8.4g}), dphi = {:8.4g} -> {:8.4g}, alpha = {:10.4g}, stationarity = {:6.4e}\n",
+               iter, phi0_, phi_, cost_decrease, dphi0_, dphi_, alpha, stationarity);
+
+    if (stop_iterating) break;
   }
+  if (!is_converged && iter == opts.iterations_max) {
+    stats.status = SolveStatus::MaxIterations;
+  }
+  stats.iterations = iter + 1;
+  fmt::print("ALTRO SOLVE FINISHED!\n");
+  //  SetCppSolverOptions();
+  //  alsolver_.Solve();
   return ErrorCodes::NoError;
 }
 
-ErrorCodes SolverImpl::CalcExpansions() {
-  // TODO: do this in parallel
-  for (int k = 0; k <= horizon_length_; ++k) {
-    KnotPointData& z = data_[k];
-    z.CalcDynamicsExpansion();
-    z.CalcCostExpansion(true);
-  }
-  return ErrorCodes::NoError;
-}
-
-ErrorCodes SolverImpl::ForwardPass(a_float* alpha) {
-  auto phi = [this](double alpha, double* phi, double* dphi) {
-    this->MeritFunction(alpha, phi, dphi);
-  };
-  phi(0.0, &phi0_, &dphi0_);
-  if (abs(dphi0_) < opts.tol_meritfun_gradient) {
-    *alpha = 0.0;
-    return ErrorCodes::MeritFunctionGradientTooSmall;
-  }
-
-  ls_.SetVerbose(opts.verbose == Verbosity::LineSearch);
-  ls_.try_cubic_first = true;
-  *alpha = ls_.Run(phi, 1.0, phi0_, dphi0_);
-  ls_.GetFinalMeritValues(&phi_, &dphi_);
-  auto res = ls_.GetStatus();
-  if (std::isnan(*alpha) || res != linesearch::CubicLineSearch::ReturnCodes::MINIMUM_FOUND) {
-    // TODO: Provide a more fine-grained return code
-    return ErrorCodes::LineSearchFailed;
-  }
-  return ErrorCodes::NoError;
-}
-
-ErrorCodes SolverImpl::OpenLoopRollout() {
-  if (!IsInitialized()) return ErrorCodes::SolverNotInitialized;
-  data_[0].x_ = initial_state_;
-  for (int k = 0; k < horizon_length_; ++k) {
-    data_[k].CalcDynamics(data_[k + 1].x_.data());
-  }
-  return ErrorCodes::NoError;
-}
 }  // namespace altro

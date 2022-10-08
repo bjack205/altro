@@ -83,6 +83,9 @@ const char* ErrorCodeToString(ErrorCodes err) {
     case ErrorCodes::InvalidBoundConstraint:
       return "Invalid bound constraint. Make sure all upper bounds are greater than or equal to the lower bounds";
       break;
+    case ErrorCodes::NonPositivePenalty:
+      return "Penalty must be strictly positive";
+      break;
   }
   return nullptr;
 }

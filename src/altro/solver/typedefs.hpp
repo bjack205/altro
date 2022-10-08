@@ -51,7 +51,7 @@ using CostHessian = std::function<void(a_float* ddx, a_float* ddu, a_float* dxdu
 using ConstraintFunction = std::function<void(a_float* val, const a_float* x, const a_float* u)>;
 using ConstraintJacobian = std::function<void(a_float* jac, const a_float* x, const a_float* u)>;
 
-enum class ConstraintType { EQUALITY, INEQUALITY, SECOND_ORDER_CONE };
+enum class ConstraintType { EQUALITY, IDENTITY, INEQUALITY, SECOND_ORDER_CONE};
 
 class ConstraintIndex {
  public:
