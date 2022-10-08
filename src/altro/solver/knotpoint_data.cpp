@@ -6,6 +6,7 @@
 #include "knotpoint_data.hpp"
 
 #include "cones.hpp"
+#include "altro/utils/formatting.hpp"
 
 namespace altro {
 
@@ -199,14 +200,40 @@ ErrorCodes KnotPointData::Initialize() {
   bool inputdim_is_set = m > 0;
   bool timestep_is_set = h > 0.0f;
 
-  if (!statedim_is_set) return ErrorCodes::StateDimUnknown;
-  if (!is_terminal) {
-    if (!inputdim_is_set) return ErrorCodes::InputDimUnknown;
-    if (!next_state_dim_is_set) return ErrorCodes::NextStateDimUnknown;
-    if (!timestep_is_set) return ErrorCodes::TimestepNotPositive;
-    if (!dynamics_is_set_) return ErrorCodes::DynamicsFunNotSet;
+  if (!statedim_is_set) {
+    return ALTRO_THROW(fmt::format("Failed to Initialize knot point {}: State dimension unknown",
+                                   knot_point_index_),
+                       ErrorCodes::StateDimUnknown);
   }
-  if (!cost_fun_is_set_) return ErrorCodes::CostFunNotSet;
+  if (!is_terminal) {
+    if (!inputdim_is_set) {
+      return ALTRO_THROW(fmt::format("Failed to Initialize knot point {}: Input dimension unknown",
+                                     knot_point_index_),
+                         ErrorCodes::InputDimUnknown);
+    }
+    if (!next_state_dim_is_set) {
+      return ALTRO_THROW(
+          fmt::format("Failed to Initialize knot point {}: Next state dimension unknown",
+                      knot_point_index_),
+          ErrorCodes::NextStateDimUnknown);
+    }
+    if (!timestep_is_set) {
+      return ALTRO_THROW(
+          fmt::format("Failed to Initialize knot point {}: Time step not set", knot_point_index_),
+          ErrorCodes::TimestepNotPositive);
+    }
+    if (!dynamics_is_set_) {
+      return ALTRO_THROW(
+          fmt::format("Failed to Initialize knot point {}: Dynamics function not set",
+                      knot_point_index_),
+          ErrorCodes::DynamicsFunNotSet);
+    }
+  }
+  if (!cost_fun_is_set_) {
+    return ALTRO_THROW(
+        fmt::format("Failed to Initialize knot point {}: Cost function not set", knot_point_index_),
+        ErrorCodes::CostFunNotSet);
+  }
 
   // General data
   x = Vector::Zero(n);
@@ -335,6 +362,24 @@ ErrorCodes KnotPointData::Initialize() {
 // Computational Methods
 /////////////////////////////////////////////
 
+a_float KnotPointData::CalcCost() {
+  a_float cost = CalcOriginalCost();
+
+  // Add constraint terms from Augmented Lagrangian
+  CalcConstraints();
+  a_float al_cost =  CalcConstraintCosts();
+  return cost + al_cost;
+}
+
+ErrorCodes KnotPointData::CalcCostGradient() {
+  CalcOriginalCostGradient();
+
+  // Add terms from Augmented Lagrangian
+  CalcConstraintExpansions();
+  CalcConstraintCostGradients();
+  return ErrorCodes::NoError;
+}
+
 ErrorCodes KnotPointData::CalcCostExpansion(bool force_update) {
   bool cost_fun_is_quadratic = cost_fun_type_ != CostFunType::Generic;
   bool is_constrained = NumConstraints() > 0;
@@ -347,7 +392,13 @@ ErrorCodes KnotPointData::CalcCostExpansion(bool force_update) {
     CalcOriginalCostHessian();
   }
 
-  // TODO: Calculate constraint costs
+  // These methods add the extra terms from the Augmented Lagrangian
+  ErrorCodes err;
+  err = CalcConstraintCostGradients();
+  if (err != ErrorCodes::NoError) return err;
+
+  err = CalcConstraintCostHessians();
+  if (err != ErrorCodes::NoError) return err;
   return ErrorCodes::NoError;
 }
 
@@ -380,6 +431,31 @@ ErrorCodes KnotPointData::CalcConstraintExpansions() {
     constraint_jacobian_[j](constraint_jac_[j].data(), x_.data(), u_.data());
   }
   return ErrorCodes::NoError;
+}
+
+ErrorCodes KnotPointData::DualUpdate() {
+  int ncons = NumConstraints();
+  for (int j = 0; j < ncons; ++j) {
+    ConstraintType dual_cone = DualCone(constraint_type_[j]);
+
+    // Calculate estimated dual
+    z_est_[j].noalias() = z_[j] - rho_[j] * constraint_val_[j];
+
+    // Project the dual into the dual cone
+    ConicProjection(dual_cone, constraint_dims_[j], z_est_[j].data(), z_proj_[j].data());
+
+    // Copy to current dual
+    // TODO: Check if recalculating z_proj_ is needed
+    z_ = z_proj_;
+  }
+  return ErrorCodes::NoError;
+}
+
+void KnotPointData::PenaltyUpdate(a_float scaling) {
+  int ncons = NumConstraints();
+  for (int j = 0; j < ncons; ++j) {
+    rho_[j] *= scaling;
+  }
 }
 
 /////////////////////////////////////////////
@@ -435,7 +511,8 @@ ErrorCodes KnotPointData::CalcConstraintCostHessians() {
 
     // Jacobian of Jacobian-transpose vector product
     if (!ConicProjectionIsLinear(dual_cone)) {
-      ConicProjectionHessian(dual_cone, p, z_est_[j].data(), z_proj_[j].data(), proj_hess_[j].data());
+      ConicProjectionHessian(dual_cone, p, z_est_[j].data(), z_proj_[j].data(),
+                             proj_hess_[j].data());
       jac_tmp_[j].noalias() = proj_hess_[j] * constraint_jac_[j];
       constraint_hess_[j].noalias() += rho_[j] * constraint_jac_[j].transpose() * jac_tmp_[j];
     }
@@ -591,18 +668,6 @@ ErrorCodes KnotPointData::CalcDynamics(a_float *xnext) {
   } else {
     dynamics_function_(xnext, x_.data(), u_.data(), GetTimeStep());
   }
-  return ErrorCodes::NoError;
-}
-
-a_float KnotPointData::CalcCost() {
-  a_float cost = CalcOriginalCost();
-  // TODO: add constraint costs
-  return cost;
-}
-
-ErrorCodes KnotPointData::CalcCostGradient() {
-  CalcOriginalCostGradient();
-  // TODO: add constraint cost gradient
   return ErrorCodes::NoError;
 }
 

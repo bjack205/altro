@@ -35,6 +35,8 @@ class SolverImpl {
   ErrorCodes MeritFunction(a_float alpha, a_float *phi, a_float *dphi);
   ErrorCodes ForwardPass(a_float *alpha);
   ErrorCodes CopyTrajectory();
+  ErrorCodes DualUpdate();
+  ErrorCodes PenaltyUpdate();
 
   ErrorCodes LinearRollout();
   a_float Stationarity();
@@ -63,14 +65,16 @@ class SolverImpl {
   // Flags
   bool cost_is_diagonal_ = false;
 
- private:
-  void SetCppSolverOptions();
-
   // Internal variables for logging
   a_float phi0_;
   a_float dphi0_;
   a_float phi_;
   a_float dphi_;
+  int ls_iters_;
+
+
+ private:
+  void SetCppSolverOptions();
 
   // TVLQR data arrays
   //   Note data is actually stored in data_, these are just pointers to that data to call tvlqr

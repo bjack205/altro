@@ -243,7 +243,7 @@ class ALTROSolver {
   ErrorCodes SetConstraint(ConstraintFunction constraint_function,
                            ConstraintJacobian constraint_jacobian, int dim,
                            ConstraintType constraint_type, std::string label, int k_start,
-                           int k_stop, std::vector<ConstraintIndex>* con_inds);
+                           int k_stop = 0, std::vector<ConstraintIndex>* con_inds = nullptr);
 
   /**
    * @brief Set the upper bound on the states at an index (or a range of knot point indices)

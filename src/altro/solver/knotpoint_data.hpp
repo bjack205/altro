@@ -17,7 +17,7 @@ class KnotPointData {
   enum class CostFunType { Generic, Quadratic, Diagonal };
 
  public:
-  explicit KnotPointData(bool is_terminal);
+  explicit KnotPointData(int index, bool is_terminal);
 
   // Prohibit copying
   KnotPointData(const KnotPointData& data) = delete;
@@ -47,6 +47,14 @@ class KnotPointData {
                            ConstraintJacobian constraint_jacobian, int dim,
                            ConstraintType constraint_type, std::string label);
 
+  ErrorCodes SetStateUpperBound(const a_float *x_max);
+  ErrorCodes SetStateLowerBound(const a_float *x_min);
+
+  ErrorCodes SetInputUpperBound(const a_float *u_max);
+  ErrorCodes SetInputLowerBound(const a_float *u_min);
+
+  ErrorCodes SetPenalty(a_float rho);
+
   ErrorCodes Initialize();
 
   // Calculation methods
@@ -55,6 +63,13 @@ class KnotPointData {
   ErrorCodes CalcCostExpansion(bool force_update);
   ErrorCodes CalcDynamics(a_float *xnext);
   ErrorCodes CalcDynamicsExpansion();
+  ErrorCodes CalcConstraints();
+  ErrorCodes CalcConstraintExpansions();
+  a_float CalcConstraintCosts();
+  ErrorCodes CalcConstraintCostGradients();
+  ErrorCodes CalcConstraintCostHessians();
+  ErrorCodes DualUpdate();
+  void PenaltyUpdate(a_float scaling);
 //  ErrorCodes CalcActionValueExpansion(const KnotPointData &next);
 //  ErrorCodes CalcGains();
 //  ErrorCodes CalcCostToGo();
@@ -85,6 +100,7 @@ class KnotPointData {
   /////////////////////////////////////////////
 
   // General info
+  int knot_point_index_ = -1;
   int num_next_state_ = 0;
   int num_states_ = 0;
   int num_inputs_ = 0;
@@ -114,6 +130,14 @@ class KnotPointData {
   Vector x_lo_;
   Vector u_hi_;
   Vector u_lo_;
+
+  VectorXi x_hi_inds_;
+  VectorXi x_lo_inds_;
+  VectorXi x_eq_inds_;
+  VectorXi u_hi_inds_;
+  VectorXi u_lo_inds_;
+  VectorXi u_eq_inds_;
+
 
   // Constraints
   std::vector<ConstraintFunction> constraint_function_;
@@ -156,9 +180,17 @@ class KnotPointData {
   Vector v_u_hi_;
   Vector v_u_lo_;
 
-  std::vector<Matrix> constraint_jac_;
   std::vector<Vector> constraint_val_;
-  std::vector<Vector> constraint_dual_;
+  std::vector<Matrix> constraint_jac_;
+  std::vector<Matrix> constraint_hess_;  // Constraint Hessian (Guass-Newton approximation)
+  std::vector<Vector> z_;                // constraint dual
+  std::vector<Vector> z_est_;            // estimated dual (z - rho * c)
+  std::vector<Vector> z_proj_;           // projected estimated dual
+  std::vector<Vector> proj_jvp_;         // Jacobian-transpose vector product
+  std::vector<Matrix> proj_jac_;         // Jacobian of projected dual
+  std::vector<Matrix> proj_hess_;        // Hessian of projected estimated dual
+  std::vector<Matrix> jac_tmp_;          // temp matrix for Hessian calculation
+  std::vector<a_float> rho_;             // penalty values
 
   // Backward pass
   Matrix lxx_;

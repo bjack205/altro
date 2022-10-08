@@ -80,7 +80,7 @@ ErrorCodes SolverImpl::Initialize() {
   for (auto& data : data_) {
     err = data.Initialize();
     if (err != ErrorCodes::NoError) {
-      return err;
+      return ALTRO_THROW("Failed to initialize the solver", err);
     }
   }
 
@@ -189,9 +189,9 @@ ErrorCodes SolverImpl::CopyTrajectory() {
 ErrorCodes SolverImpl::CalcExpansions() {
   // TODO: do this in parallel
   for (int k = 0; k <= horizon_length_; ++k) {
-    KnotPointData& z = data_[k];
-    z.CalcDynamicsExpansion();
-    z.CalcCostExpansion(true);
+    KnotPointData& kp = data_[k];
+    kp.CalcDynamicsExpansion();
+    kp.CalcCostExpansion(true);
   }
   return ErrorCodes::NoError;
 }
@@ -244,9 +244,10 @@ ErrorCodes SolverImpl::ForwardPass(a_float* alpha) {
   *alpha = ls_.Run(phi, 1.0, phi0_, dphi0_);
   ls_.GetFinalMeritValues(&phi_, &dphi_);
   auto res = ls_.GetStatus();
-  if (std::isnan(*alpha) || res != linesearch::CubicLineSearch::ReturnCodes::MINIMUM_FOUND) {
+  ls_iters_ = ls_.Iterations();
+  if (std::isnan(*alpha) || !(res == linesearch::CubicLineSearch::ReturnCodes::MINIMUM_FOUND || res == linesearch::CubicLineSearch::ReturnCodes::HIT_MAX_STEPSIZE)) {
     // TODO: Provide a more fine-grained return code
-    return ErrorCodes::LineSearchFailed;
+    return ALTRO_THROW(fmt::format("Line search failed with code {}", (int)(res)), ErrorCodes::LineSearchFailed);
   }
   return ErrorCodes::NoError;
 }
@@ -277,7 +278,6 @@ ErrorCodes SolverImpl::MeritFunction(a_float alpha, a_float* phi, a_float* dphi)
 
     // Calculate the cost
     double cost = z.CalcCost();
-    //    fmt::print("cost {}: {}\n", k, cost);
     phi_ += cost;
 
     if (calc_derivative) {
@@ -328,6 +328,22 @@ ErrorCodes SolverImpl::BackwardPass() {
   }
 }
 
+ErrorCodes SolverImpl::DualUpdate() {
+  if (!IsInitialized()) return ErrorCodes::SolverNotInitialized;
+  for (int k = 0; k <= horizon_length_; ++k) {
+    data_[k].DualUpdate();
+  }
+  return ErrorCodes::NoError;
+}
+
+ErrorCodes SolverImpl::PenaltyUpdate() {
+  if (!IsInitialized()) return ErrorCodes::SolverAlreadyInitialized;
+  for (int k = 0; k <= horizon_length_; ++k) {
+    data_[k].PenaltyUpdate(opts.penalty_scaling);
+  }
+  return ErrorCodes::NoError;
+}
+
 ErrorCodes SolverImpl::Solve() {
   // TODO: Copy options to line search
   ErrorCodes err;
@@ -351,6 +367,10 @@ ErrorCodes SolverImpl::Solve() {
     CalcExpansions();
     BackwardPass();
     err = ForwardPass(&alpha);
+    if (err != ErrorCodes::NoError) {
+      PrintErrorCode(err);
+//      stop_iterating = true;
+    }
     CopyTrajectory();
     a_float stationarity = Stationarity();
 
@@ -367,8 +387,8 @@ ErrorCodes SolverImpl::Solve() {
     }
 
     // Print log
-    fmt::print("  iter = {:3d}, phi = {:8.4g} -> {:8.4g} ({:8.4g}), dphi = {:8.4g} -> {:8.4g}, alpha = {:10.4g}, stationarity = {:6.4e}\n",
-               iter, phi0_, phi_, cost_decrease, dphi0_, dphi_, alpha, stationarity);
+    fmt::print("  iter = {:3d}, phi = {:8.4g} -> {:8.4g} ({:10.3g}), dphi = {:8.4g} -> {:8.4g}, alpha = {:8.3g}, ls_iter = {:2d}, stationarity = {:6.4e}\n",
+               iter, phi0_, phi_, cost_decrease, dphi0_, dphi_, alpha, ls_iters_, stationarity);
 
     if (stop_iterating) break;
   }

@@ -100,7 +100,7 @@ TEST(Pendulum, Unconstrained) {
   // Solve
   AltroOptions opts;
   opts.verbose = Verbosity::Inner;
-  opts.iterations_max = 10;
+  opts.iterations_max = 20;
   solver.SetOptions(opts);
   SolveStatus status = solver.Solve();
   EXPECT_EQ(status, SolveStatus::Success);
@@ -112,4 +112,95 @@ TEST(Pendulum, Unconstrained) {
   double xf_err = (xN - xN_expected).norm();
   EXPECT_LT(xf_err, 1e-5);
   EXPECT_LE(solver.GetIterations(), 10);
+}
+
+TEST(Pendulum, GoalConstrained) {
+  const int n = 2;
+  const int m = 1;
+  const int N = 50;
+  const float tf = 3.0;
+  const float h = tf / static_cast<double>(N);
+
+  // Objective
+  VectorXd Qd = VectorXd::Constant(n, 1e-2);
+  VectorXd Rd = VectorXd::Constant(m, 1e-3);
+  VectorXd Qdf = VectorXd::Constant(n, 1e-0);
+  VectorXd x0(n);
+  VectorXd xf(n);
+  VectorXd uf(m);
+  x0.setZero();
+  xf << M_PI, 0.0;
+  uf.setZero();
+
+  // Dynamics
+  auto dyn = MidpointDynamics(n, m, pendulum_dynamics);
+  auto jac = MidpointJacobian(n, m, pendulum_dynamics, pendulum_jacobian);
+
+  // Define the problem
+  ErrorCodes err;
+  ALTROSolver solver(N);
+
+  // Dimension and Time step
+  err = solver.SetDimension(n, m, 0, LastIndex);
+  EXPECT_EQ(err, ErrorCodes::NoError);
+  err = solver.SetTimeStep(h, 0, LastIndex);
+  EXPECT_EQ(err, ErrorCodes::NoError);
+
+  // Dynamics
+  err = solver.SetExplicitDynamics(dyn, jac, 0, LastIndex);
+  EXPECT_EQ(err, ErrorCodes::NoError);
+
+  // Cost Function
+  err = solver.SetLQRCost(n, m, Qd.data(), Rd.data(), xf.data(), uf.data(), 0, N);
+  EXPECT_EQ(err, ErrorCodes::NoError);
+  err = solver.SetLQRCost(n, m, Qdf.data(), Rd.data(), xf.data(), uf.data(), N);
+  EXPECT_EQ(err, ErrorCodes::NoError);
+
+  // Goal Constraint
+  auto goal_con = [xf](a_float *c, const a_float *x, const a_float *u) {
+    (void)u;
+    for (int i = 0; i < xf.size(); ++i) {
+      c[i] = x[i] - xf[i];
+    }
+  };
+  auto goal_jac = [n,m](a_float *jac, const a_float *x, const a_float *u) {
+    (void)x;
+    (void)u;
+    Eigen::Map<MatrixXd> J(jac, n, n + m);
+    J.setIdentity();
+    J *= -1;
+  };
+  solver.SetConstraint(goal_con, goal_jac, n, ConstraintType::EQUALITY, "Goal Constraint", N, N + 1);
+
+  // Initial State
+  err = solver.SetInitialState(x0.data(), n);
+  EXPECT_EQ(err, ErrorCodes::NoError);
+
+  // Initialize solver
+  err = solver.Initialize();
+  EXPECT_EQ(err, ErrorCodes::NoError);
+  EXPECT_TRUE(solver.IsInitialized());
+
+  // Set initial trajectory
+  VectorXd u0 = VectorXd::Constant(m, 0.1);
+  solver.SetInput(u0.data(), m, 0, LastIndex);
+
+  // Solve
+//  AltroOptions opts;
+//  opts.verbose = Verbosity::Inner;
+//  opts.iterations_max = 100;
+//  solver.SetOptions(opts);
+//  SolveStatus status = solver.Solve();
+//  EXPECT_EQ(status, SolveStatus::Success);
+
+//  VectorXd xN(n);
+//  solver.GetState(xN.data(), N);
+//  double dist_to_goal = (xN - xf).norm();
+//  fmt::print("distance to goal: {}\n", dist_to_goal);
+//  VectorXd xN_expected(n);
+//  xN_expected << 3.12099917161669, 0.0011966258762942175;
+//  double xf_err = (xN - xN_expected).norm();
+//  fmt::print("xf_err = {}\n", xf_err);
+//  EXPECT_LT(xf_err, 1e-5);
+//  EXPECT_LE(solver.GetIterations(), 10);
 }

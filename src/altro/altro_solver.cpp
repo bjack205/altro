@@ -226,28 +226,34 @@ ErrorCodes ALTROSolver::SetConstraint(ConstraintFunction constraint_function,
   if (con_inds) con_inds->reserve(num_indices);
 
   for (int k = k_start; k < k_stop; ++k) {
-    int n = GetStateDim(k);
-    int m = GetInputDim(k);
+//    int n = GetStateDim(k);
+//    int m = GetInputDim(k);
     std::string label_k = label;
     if (num_indices != 1) {
       label_k += "_" + std::to_string(k);
     }
 
-    // Add constraint to problem
-    int ncon = -1;
-    if (constraint_type == ConstraintType::EQUALITY) {
-      cpp_interface::EqualityConstraint eq(n, m, dim, constraint_function, constraint_jacobian,
-                                           label_k);
-      solver_->problem_.SetConstraint(
-          std::make_shared<cpp_interface::EqualityConstraint>(std::move(eq)), k);
-      ncon = solver_->problem_.GetNumEqualityConstraints(k);
-    } else if (constraint_type == ConstraintType::INEQUALITY) {
-      cpp_interface::InequalityConstraint ineq(n, m, dim, constraint_function, constraint_jacobian,
-                                               label_k);
-      solver_->problem_.SetConstraint(
-          std::make_shared<cpp_interface::InequalityConstraint>(std::move(ineq)), k);
-      ncon = solver_->problem_.GetNumInequalityConstraints(k);
-    }
+    // Add constraint to knot point
+    int ncon = solver_->data_[k].NumConstraints();
+    solver_->data_[k].SetConstraint(constraint_function, constraint_jacobian, dim, constraint_type,
+                                    label);
+
+    // AltroCpp Interface
+    //    if (constraint_type == ConstraintType::EQUALITY) {
+    //      cpp_interface::EqualityConstraint eq(n, m, dim, constraint_function,
+    //      constraint_jacobian,
+    //                                           label_k);
+    //      solver_->problem_.SetConstraint(
+    //          std::make_shared<cpp_interface::EqualityConstraint>(std::move(eq)), k);
+    //      ncon = solver_->problem_.GetNumEqualityConstraints(k);
+    //    } else if (constraint_type == ConstraintType::INEQUALITY) {
+    //      cpp_interface::InequalityConstraint ineq(n, m, dim, constraint_function,
+    //      constraint_jacobian,
+    //                                               label_k);
+    //      solver_->problem_.SetConstraint(
+    //          std::make_shared<cpp_interface::InequalityConstraint>(std::move(ineq)), k);
+    //      ncon = solver_->problem_.GetNumInequalityConstraints(k);
+    //    }
 
     // Set index
     ConstraintIndex idx(k, ncon);
