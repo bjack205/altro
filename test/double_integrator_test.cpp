@@ -1,5 +1,6 @@
 #include "Eigen/Dense"
 #include "altro/altro.hpp"
+#include "altro/eigentypes.hpp"
 #include "altro/utils/formatting.hpp"
 #include "gtest/gtest.h"
 
@@ -97,7 +98,8 @@ TEST(DoubleIntegrator, SolverUnconstrained) {
   EXPECT_EQ(err, ErrorCodes::NoError);
   PrintErrorCode(err);
 
-  err = solver.SetLQRCost(num_states, num_inputs, Q.data(), R.data(), xf.data(), uf.data(), 0, LastIndex);
+  err = solver.SetLQRCost(num_states, num_inputs, Q.data(), R.data(), xf.data(), uf.data(), 0,
+                          LastIndex);
   PrintErrorCode(err);
   EXPECT_EQ(err, ErrorCodes::NoError);
 
@@ -142,7 +144,8 @@ TEST(DoubleIntegrator, SolverUnconstrained) {
     solver.GetDualDynamics(yk.data(), k);
     if (k < num_horizon) {
       solver.GetInput(uk.data(), k);
-      fmt::print("Index {}: [{}],\t\t [{}],\t\t [{}]\n", k, xk.transpose().eval(), uk.transpose().eval(), yk.transpose().eval());
+      fmt::print("Index {}: [{}],\t\t [{}],\t\t [{}]\n", k, xk.transpose().eval(),
+                 uk.transpose().eval(), yk.transpose().eval());
     } else {
       fmt::print("Index {}: [{}], [{}]\n", k, xk.transpose().eval(), yk.transpose().eval());
     }
@@ -206,7 +209,8 @@ TEST(DoubleIntegrator, SolveGoalConstraint) {
   solver.SetDimension(num_states, num_inputs, 0, LastIndex);
   solver.SetTimeStep(h, 0, LastIndex);
   solver.SetExplicitDynamics(dyn, jac, 0, LastIndex);
-  err = solver.SetLQRCost(num_states, num_inputs, Q.data(), R.data(), xf.data(), uf.data(), 0, LastIndex);
+  err = solver.SetLQRCost(num_states, num_inputs, Q.data(), R.data(), xf.data(), uf.data(), 0,
+                          LastIndex);
   PrintErrorCode(err);
   solver.SetInitialState(x0.data(), x0.size());
   solver.SetConstraint(goalcon, goaljac, num_states, ConstraintType::EQUALITY, "Goal constraint",
@@ -264,7 +268,7 @@ TEST(DoubleIntegrator, ControlBounds) {
   Eigen::VectorXd x0(num_states);
   Eigen::VectorXd xf(num_states);
   Eigen::VectorXd uf(num_inputs);
-  x0 << 1.0, 2.0, 0.0, 0.0;
+  x0 << 2.0, 2.0, 0.0, 0.0;
   xf.setZero();
   uf.setZero();
 
@@ -287,17 +291,44 @@ TEST(DoubleIntegrator, ControlBounds) {
     }
   };
 
+  // Control Bound Constraint
+  const a_float u_bnd = 1.0;
+  auto ubnd_con = [u_bnd](double *c, const double *x, const double *u) {
+    (void)x;
+    int m = 2;
+    double u_bound[2] = {u_bnd, u_bnd};
+    for (int i = 0; i < m; ++i) {
+      c[i] = u[i] - u_bound[i];
+      c[i + m] = -u_bound[i] - u[i];
+    }
+  };
+  auto ubnd_jac = [u_bnd](double *jac, const double *x, const double *u) {
+    (void)x;
+    (void)u;
+    int n = 4;
+    int m = 2;
+    Eigen::Map<Eigen::MatrixXd> J(jac, 4, 6);
+    J.setZero();
+    for (int i = 0; i < m; ++i) {
+      J(i, n + i) = 1.0;
+      J(i + m, n + i) = -1.0;
+    }
+  };
+
   // Define the problem
   ErrorCodes err;
   ALTROSolver solver(num_horizon);
   solver.SetDimension(num_states, num_inputs, 0, LastIndex);
   solver.SetTimeStep(h, 0, LastIndex);
   solver.SetExplicitDynamics(dyn, jac, 0, LastIndex);
-  err = solver.SetLQRCost(num_states, num_inputs, Q.data(), R.data(), xf.data(), uf.data(), 0, LastIndex);
+  err = solver.SetLQRCost(num_states, num_inputs, Q.data(), R.data(), xf.data(), uf.data(), 0,
+                          LastIndex);
   PrintErrorCode(err);
   solver.SetInitialState(x0.data(), x0.size());
   solver.SetConstraint(goalcon, goaljac, num_states, ConstraintType::EQUALITY, "Goal constraint",
                        num_horizon, 0, nullptr);
+  solver.SetConstraint(ubnd_con, ubnd_jac, num_inputs * 2, ConstraintType::INEQUALITY,
+                       "Control bounds", 0, num_horizon, nullptr);
   solver.Initialize();
   EXPECT_TRUE(solver.IsInitialized());
   fmt::print("Solver Initialized.\n");
@@ -309,16 +340,13 @@ TEST(DoubleIntegrator, ControlBounds) {
   solver.SetInput(uinit.data(), uinit.size(), 0, LastIndex);
 
   // Get Initial Cost
-  double cost0 = (x0 - xf).transpose() * Q.asDiagonal() * (x0 - xf);
-  //  fmt::print("dx = [{}]\n", x)
-  fmt::print("cost0 = {}\n", cost0);
-
   double cost_initial = solver.CalcCost();
   fmt::print("Initial cost = {}\n", cost_initial);
 
   // Solve
   AltroOptions opts;
   opts.verbose = Verbosity::Inner;
+  opts.penalty_initial = 100;
   opts.penalty_scaling = 100;
   solver.SetOptions(opts);
   SolveStatus status = solver.Solve();
@@ -335,5 +363,13 @@ TEST(DoubleIntegrator, ControlBounds) {
   double dist_to_goal = (x_N - xf).norm();
   fmt::print("Distance to Goal: {}\n", dist_to_goal);
   EXPECT_LT(dist_to_goal, 1e-4);
-  EXPECT_EQ(solver.GetIterations(), 3);
+
+  // Check that the controls are saturated
+  VectorXd u0(2);
+  solver.GetInput(u0.data(), 0);
+  for (int i = 0; i < num_inputs; ++i) {
+    EXPECT_NEAR(u0[i], -u_bnd, 1e-4);
+  }
+
+  EXPECT_EQ(solver.GetIterations(), 5);
 }

@@ -243,7 +243,7 @@ ErrorCodes ALTROSolver::SetConstraint(ConstraintFunction constraint_function,
 
     // Add constraint to knot point
     int ncon = solver_->data_[k].NumConstraints();
-    solver_->data_[k].SetConstraint(std::move(constraint_function), std::move(constraint_jacobian),
+    solver_->data_[k].SetConstraint(constraint_function, constraint_jacobian,
                                     dim, constraint_type, label);
 
     // AltroCpp Interface
