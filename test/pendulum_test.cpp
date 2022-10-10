@@ -17,9 +17,9 @@ TEST(Pendulum, DynamicsTest) {
   float h = 0.05;
   auto dyn = MidpointDynamics(n, m, pendulum_dynamics);
   auto jac = MidpointJacobian(n, m, pendulum_dynamics, pendulum_jacobian);
-  VectorXd xn(n);
-  VectorXd x(n);
-  VectorXd u(m);
+  Vector xn(n);
+  Vector x(n);
+  Vector u(m);
   x << 0.1, -0.4;
   u << 1.34;
   pendulum_dynamics(xn.data(), x.data(), u.data());
@@ -28,15 +28,15 @@ TEST(Pendulum, DynamicsTest) {
   dyn(xn.data(), x.data(), u.data(), h);
   fmt::print("xn = [{}]\n", xn.transpose().eval());
 
-  VectorXd xn_expected(n);
+  Vector xn_expected(n);
   xn_expected << 0.08445158545673655, -0.21395149094594346;
   EXPECT_LT((xn - xn_expected).norm(), 1e-6);
 
-  MatrixXd J(n, n + m);
+  Matrix J(n, n + m);
   jac(J.data(), x.data(), u.data(), h);
   fmt::print("J:\n{}\n", J);
 
-  MatrixXd J_expected(n, n + m);
+  Matrix J_expected(n, n + m);
   J_expected << 0.9755975228465564, 0.0495, 0.005000000000000001, -0.967268640223389, 0.9557742592228808, 0.198;
   fmt::print("J:\n{}\n", J_expected);
   EXPECT_LT((J - J_expected).norm(), 1e-6);
@@ -50,12 +50,12 @@ TEST(Pendulum, Unconstrained) {
   const float h = tf / static_cast<double>(N);
 
   // Objective
-  VectorXd Qd = VectorXd::Constant(n, 1e-2);
-  VectorXd Rd = VectorXd::Constant(m, 1e-3);
-  VectorXd Qdf = VectorXd::Constant(n, 1e-0);
-  VectorXd x0(n);
-  VectorXd xf(n);
-  VectorXd uf(m);
+  Vector Qd = Vector::Constant(n, 1e-2);
+  Vector Rd = Vector::Constant(m, 1e-3);
+  Vector Qdf = Vector::Constant(n, 1e-0);
+  Vector x0(n);
+  Vector xf(n);
+  Vector uf(m);
   x0.setZero();
   xf << M_PI, 0.0;
   uf.setZero();
@@ -94,7 +94,7 @@ TEST(Pendulum, Unconstrained) {
   EXPECT_TRUE(solver.IsInitialized());
 
   // Set initial trajectory
-  VectorXd u0 = VectorXd::Constant(m, 0.1);
+  Vector u0 = Vector::Constant(m, 0.1);
   solver.SetInput(u0.data(), m, 0, LastIndex);
 
   // Solve
@@ -105,9 +105,9 @@ TEST(Pendulum, Unconstrained) {
   SolveStatus status = solver.Solve();
   EXPECT_EQ(status, SolveStatus::Success);
 
-  VectorXd xN(n);
+  Vector xN(n);
   solver.GetState(xN.data(), N);
-  VectorXd xN_expected(n);
+  Vector xN_expected(n);
   xN_expected << 3.12099917161669, 0.0011966258762942175;
   double xf_err = (xN - xN_expected).norm();
   EXPECT_LT(xf_err, 1e-5);
@@ -122,12 +122,12 @@ TEST(Pendulum, GoalConstrained) {
   const float h = tf / static_cast<double>(N);
 
   // Objective
-  VectorXd Qd = VectorXd::Constant(n, 1e-2);
-  VectorXd Rd = VectorXd::Constant(m, 1e-3);
-  VectorXd Qdf = VectorXd::Constant(n, 1e-0);
-  VectorXd x0(n);
-  VectorXd xf(n);
-  VectorXd uf(m);
+  Vector Qd = Vector::Constant(n, 1e-2);
+  Vector Rd = Vector::Constant(m, 1e-3);
+  Vector Qdf = Vector::Constant(n, 1e-0);
+  Vector x0(n);
+  Vector xf(n);
+  Vector uf(m);
   x0.setZero();
   xf << M_PI, 0.0;
   uf.setZero();
@@ -182,7 +182,7 @@ TEST(Pendulum, GoalConstrained) {
   EXPECT_TRUE(solver.IsInitialized());
 
   // Set initial trajectory
-  VectorXd u0 = VectorXd::Constant(m, 0.1);
+  Vector u0 = Vector::Constant(m, 0.1);
   solver.SetInput(u0.data(), m, 0, LastIndex);
 
   // Solve
@@ -194,7 +194,7 @@ TEST(Pendulum, GoalConstrained) {
   EXPECT_EQ(status, SolveStatus::Success);
   fmt::print("status = {}\n", (int)status);
 
-  VectorXd xN(n);
+  Vector xN(n);
   solver.GetState(xN.data(), N);
   double dist_to_goal = (xN - xf).norm();
   fmt::print("distance to goal: {}\n", dist_to_goal);

@@ -26,8 +26,8 @@ add_library(altro_impl STATIC
 target_link_libraries(altro_impl
   PUBLIC
   Eigen3::Eigen
-  altrocpp::altro
-  altrocpp::interface
+#  altrocpp::altro
+#  altrocpp::interface
 
   PRIVATE
   fmt::fmt

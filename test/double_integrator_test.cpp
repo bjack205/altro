@@ -1,6 +1,6 @@
 #include "Eigen/Dense"
 #include "altro/altro.hpp"
-#include "altro/eigentypes.hpp"
+//#include "altro/eigentypes.hpp"
 #include "altro/utils/formatting.hpp"
 #include "gtest/gtest.h"
 
@@ -365,7 +365,7 @@ TEST(DoubleIntegrator, ControlBounds) {
   EXPECT_LT(dist_to_goal, 1e-4);
 
   // Check that the controls are saturated
-  VectorXd u0(2);
+  Eigen::VectorXd u0(2);
   solver.GetInput(u0.data(), 0);
   for (int i = 0; i < num_inputs; ++i) {
     EXPECT_NEAR(u0[i], -u_bnd, 1e-4);
@@ -483,7 +483,7 @@ TEST(DoubleIntegrator, SOCControlBounds) {
 
   // Check that the controls are saturated in the norm
   solver.PrintInputTrajectory();
-  VectorXd u(2);
+  Eigen::VectorXd u(2);
   for (int k = 0; k < 3; ++k) {
     solver.GetInput(u.data(), 0);
     EXPECT_NEAR(u.norm(), u_bnd, 1e-2);

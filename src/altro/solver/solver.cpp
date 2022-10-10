@@ -5,9 +5,9 @@
 
 #include "solver.hpp"
 
-#include "altro/common/knotpoint.hpp"
+//#include "altro/common/knotpoint.hpp"
 #include "altro/utils/formatting.hpp"
-#include "altrocpp_interface/altrocpp_interface.hpp"
+//#include "altrocpp_interface/altrocpp_interface.hpp"
 #include "tvlqr/tvlqr.h"
 
 namespace altro {
@@ -19,8 +19,8 @@ SolverImpl::SolverImpl(int N)
       h_(N),
       opts(),
       stats(),
-      problem_(N),
-      alsolver_(N),
+//      problem_(N),
+//      alsolver_(N),
       x_(N + 1, nullptr),
       u_(N, nullptr),
       y_(N + 1, nullptr),
@@ -46,8 +46,8 @@ SolverImpl::SolverImpl(int N)
       Qux_tmp_(N, nullptr),
       Qx_tmp_(N + 1, nullptr),
       Qu_tmp_(N, nullptr) {
-  altro::TrajectoryXXd traj(0, 0, N);
-  trajectory_ = std::make_shared<altro::TrajectoryXXd>(traj);
+//  altro::TrajectoryXXd traj(0, 0, N);
+//  trajectory_ = std::make_shared<altro::TrajectoryXXd>(traj);
 
   // Initialize knot point data
   for (int k = 0; k <= N; ++k) {
@@ -133,28 +133,28 @@ ErrorCodes SolverImpl::Initialize() {
   return ErrorCodes::NoError;
 }
 
-void SolverImpl::SetCppSolverOptions() {
-  SolverOptions& cppopts = alsolver_.GetOptions();
-  cppopts.cost_tolerance = opts.tol_cost;
-  cppopts.gradient_tolerance = opts.tol_stationarity;
-  cppopts.maximum_penalty = opts.penalty_max;
-  cppopts.initial_penalty = opts.penalty_initial;
-  SolverOptions& ilqropts = alsolver_.GetiLQRSolver().GetOptions();
-  switch (opts.verbose) {
-    case Verbosity::Silent:
-      ilqropts.verbose = LogLevel::kSilent;
-      break;
-    case Verbosity::Outer:
-      ilqropts.verbose = LogLevel::kOuter;
-      break;
-    case Verbosity::Inner:
-      ilqropts.verbose = LogLevel::kInner;
-      break;
-    case Verbosity::LineSearch:
-      ilqropts.verbose = LogLevel::kInner;
-      break;
-  }
-}
+//void SolverImpl::SetCppSolverOptions() {
+//  SolverOptions& cppopts = alsolver_.GetOptions();
+//  cppopts.cost_tolerance = opts.tol_cost;
+//  cppopts.gradient_tolerance = opts.tol_stationarity;
+//  cppopts.maximum_penalty = opts.penalty_max;
+//  cppopts.initial_penalty = opts.penalty_initial;
+//  SolverOptions& ilqropts = alsolver_.GetiLQRSolver().GetOptions();
+//  switch (opts.verbose) {
+//    case Verbosity::Silent:
+//      ilqropts.verbose = LogLevel::kSilent;
+//      break;
+//    case Verbosity::Outer:
+//      ilqropts.verbose = LogLevel::kOuter;
+//      break;
+//    case Verbosity::Inner:
+//      ilqropts.verbose = LogLevel::kInner;
+//      break;
+//    case Verbosity::LineSearch:
+//      ilqropts.verbose = LogLevel::kInner;
+//      break;
+//  }
+//}
 
 /////////////////////////////////////////////
 // Rollouts
@@ -212,7 +212,8 @@ a_float SolverImpl::CalcCost() {
   if (projected_duals_up_to_date_) fmt::print("    Constraints already up-to-date (CalcCost)\n");
   for (int k = 0; k <= horizon_length_; ++k) {
     data_[k].CalcConstraints();
-    cost += data_[k].CalcCost();
+    a_float cost_k = data_[k].CalcCost();
+    cost += cost_k;
   }
   constraint_vals_up_to_date_ = true;
   projected_duals_up_to_date_ = true;

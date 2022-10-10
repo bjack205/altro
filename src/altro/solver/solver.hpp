@@ -8,7 +8,7 @@
 #include <memory>
 
 #include "linesearch/linesearch.hpp"
-#include "altro/augmented_lagrangian/al_solver.hpp"
+//#include "altro/augmented_lagrangian/al_solver.hpp"
 #include "internal_types.hpp"
 #include "knotpoint_data.hpp"
 #include "shifted_vector.hpp"
@@ -65,9 +65,9 @@ class SolverImpl {
 
 
   // Old AltroCpp
-  altro::problem::Problem problem_;
-  altro::augmented_lagrangian::AugmentedLagrangianiLQR<Eigen::Dynamic, Eigen::Dynamic> alsolver_;
-  std::shared_ptr<altro::TrajectoryXXd> trajectory_;
+//  altro::problem::Problem problem_;
+//  altro::augmented_lagrangian::AugmentedLagrangianiLQR<Eigen::Dynamic, Eigen::Dynamic> alsolver_;
+//  std::shared_ptr<altro::TrajectoryXXd> trajectory_;
   linesearch::CubicLineSearch ls_;
 
   // Flags
@@ -83,7 +83,7 @@ class SolverImpl {
 
 
  private:
-  void SetCppSolverOptions();
+//  void SetCppSolverOptions();
 
   bool constraint_vals_up_to_date_ = false;
   bool constraint_jacs_up_to_date_ = false;

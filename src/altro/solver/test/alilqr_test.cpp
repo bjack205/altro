@@ -61,13 +61,15 @@ class SolverImpl_PendulumTest : public ::testing::Test {
         auto goal_jac = [](a_float *jac, const a_float *x, const a_float *u) {
           (void)x;
           (void)u;
-          Eigen::Map<MatrixXd> J(jac, 2, 3);
+          Eigen::Map<Matrix> J(jac, 2, 3);
           J.setIdentity();
           J *= -1;
         };
         kp.SetConstraint(std::move(goal_con), std::move(goal_jac), n, ConstraintType::EQUALITY, "Goal constraint");
       }
     }
+    solver.data_[N].SetDimension(n, m);
+    solver.data_[N].SetNextStateDimension(n);
 
     // Initial State
     solver.initial_state_ = x0;
@@ -79,7 +81,7 @@ class SolverImpl_PendulumTest : public ::testing::Test {
     EXPECT_TRUE(solver.IsInitialized());
 
     // Set initial trajectory
-    VectorXd u0 = VectorXd::Constant(m, 0.1);
+    Vector u0 = Vector::Constant(m, 0.1);
     for (int k = 0; k < N; ++k) {
       solver.data_[k].u_ = u0;
     }
@@ -92,12 +94,12 @@ class SolverImpl_PendulumTest : public ::testing::Test {
   float tf = 2.0;
   float h;
 
-  VectorXd Qd = VectorXd::Constant(n, 1e-2);
-  VectorXd Rd = VectorXd::Constant(m, 1e-3);
-  VectorXd Qdf = VectorXd::Constant(n, 1e-0);
-  VectorXd x0 = VectorXd::Zero(n);
-  VectorXd xf = VectorXd(n);
-  VectorXd uf = VectorXd::Zero(m);
+  Vector Qd = Vector::Constant(n, 1e-2);
+  Vector Rd = Vector::Constant(m, 1e-3);
+  Vector Qdf = Vector::Constant(n, 1e-0);
+  Vector x0 = Vector::Zero(n);
+  Vector xf = Vector(n);
+  Vector uf = Vector::Zero(m);
 
   SolverImpl solver;
 };

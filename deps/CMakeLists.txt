@@ -39,11 +39,11 @@ FetchContent_Declare(json
 FetchContent_MakeAvailable(json)
 list(POP_BACK CMAKE_MESSAGE_CONTEXT)
 
-# AltroCpp
-list(APPEND CMAKE_MESSAGE_CONTEXT altrocpp)
-FetchContent_Declare(altrocpp
-  GIT_REPOSITORY https://github.com/bjack205/altro-cpp.git
-  GIT_TAG edf246b0a1f9584cfb9ccf9f30afade6b039d2a7
-  )
-FetchContent_MakeAvailable(altrocpp)
-list(POP_BACK CMAKE_MESSAGE_CONTEXT)
+## AltroCpp
+#list(APPEND CMAKE_MESSAGE_CONTEXT altrocpp)
+#FetchContent_Declare(altrocpp
+#  GIT_REPOSITORY https://github.com/bjack205/altro-cpp.git
+#  GIT_TAG edf246b0a1f9584cfb9ccf9f30afade6b039d2a7
+#  )
+#FetchContent_MakeAvailable(altrocpp)
+#list(POP_BACK CMAKE_MESSAGE_CONTEXT)

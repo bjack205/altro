@@ -21,15 +21,21 @@ KnotPointData::KnotPointData(int index, bool is_terminal)
 /////////////////////////////////////////////
 ErrorCodes KnotPointData::SetDimension(int num_states, int num_inputs) {
   if (num_states <= 0) {
-    return ErrorCodes::StateDimUnknown;
+    return ALTRO_THROW(
+        fmt::format("State dimension must be specified at index {}", knot_point_index_),
+        ErrorCodes::StateDimUnknown);
   }
-  if (!IsTerminalKnotPoint() && num_inputs <= 0) {
-    return ErrorCodes::InputDimUnknown;
+  if (num_inputs <= 0) {
+    std::string msg;
+    if (IsTerminalKnotPoint()) {
+      msg = fmt::format("Input dimension must also be specified at the terminal knot point.");
+    } else {
+      msg = fmt::format("Input dimension must be specified at index {}", knot_point_index_);
+    }
+    return ALTRO_THROW(msg, ErrorCodes::InputDimUnknown);
   }
   num_states_ = num_states;
-  if (!IsTerminalKnotPoint()) {
-    num_inputs_ = num_inputs;
-  }
+  num_inputs_ = num_inputs;
   return ErrorCodes::NoError;
 }
 
@@ -199,8 +205,7 @@ ErrorCodes KnotPointData::UpdateLinearCosts(const altro::a_float *q, const altro
   }
   if (r != nullptr && IsTerminalKnotPoint()) {
     return ALTRO_THROW(
-        fmt::format("Cannot update linear input costs at terminal index {}",
-                    knot_point_index_),
+        fmt::format("Cannot update linear input costs at terminal index {}", knot_point_index_),
         ErrorCodes::InvalidOptAtTerminalKnotPoint);
   }
 
@@ -588,7 +593,9 @@ ErrorCodes KnotPointData::CalcConstraintCostGradients() {
   CalcConicJacobians();
   for (int j = 0; j < num_con; ++j) {
     lx_.noalias() -= constraint_jac_[j].leftCols(num_states_).transpose() * proj_jvp_[j];
-    lu_.noalias() -= constraint_jac_[j].rightCols(num_inputs_).transpose() * proj_jvp_[j];
+    if (!IsTerminalKnotPoint()) {
+      lu_.noalias() -= constraint_jac_[j].rightCols(num_inputs_).transpose() * proj_jvp_[j];
+    }
   }
   return ErrorCodes::NoError;
 }
@@ -603,8 +610,10 @@ ErrorCodes KnotPointData::CalcConstraintCostHessians() {
     int n = num_states_;
     int m = num_inputs_;
     lxx_ += constraint_hess_[j].topLeftCorner(n, n);
-    luu_ += constraint_hess_[j].bottomRightCorner(m, m);
-    lux_ += constraint_hess_[j].bottomLeftCorner(m, n);
+    if (!IsTerminalKnotPoint()) {
+      luu_ += constraint_hess_[j].bottomRightCorner(m, m);
+      lux_ += constraint_hess_[j].bottomLeftCorner(m, n);
+    }
   }
   return ErrorCodes::NoError;
 }
@@ -729,14 +738,18 @@ void KnotPointData::CalcOriginalCostHessian() {
     }
     case CostFunType::Quadratic: {
       lxx_ = Q_.reshaped(n, n);
-      luu_ = R_.reshaped(m, m);
-      lux_ = H_;
+      if (!IsTerminalKnotPoint()) {
+        luu_ = R_.reshaped(m, m);
+        lux_ = H_;
+      }
       break;
     }
     case CostFunType::Diagonal: {
       lxx_ = Q_.head(n).asDiagonal();
-      luu_ = R_.head(m).asDiagonal();
-      lux_.setZero();
+      if (!IsTerminalKnotPoint()) {
+        luu_ = R_.head(m).asDiagonal();
+        lux_.setZero();
+      }
       break;
     }
   }

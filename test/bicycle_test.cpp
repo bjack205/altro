@@ -19,14 +19,14 @@ TEST(BicycleTests, Dynamics) {
   BicycleModel model;
   int n = BicycleModel::NumStates;
   int m = BicycleModel::NumInputs;
-  VectorXd x_dot(n);
-  VectorXd x(n);
-  VectorXd u(m);
+  Vector x_dot(n);
+  Vector x(n);
+  Vector u(m);
   x << 1, 0.5, 15 * M_PI / 180.0, -5 * M_PI / 180.0;
   u << 1.1, 0.2;
 
   // Continuous Dynamics
-  VectorXd x_dot_expected(4);
+  Vector x_dot_expected(4);
   x_dot_expected << 1.0750584102061864, 0.23291503739549996, -0.03560171424038893, 0.2;
   model.Dynamics(x_dot.data(), x.data(), u.data());
   EXPECT_LT((x_dot - x_dot_expected).norm(), 1e-10);
@@ -49,12 +49,12 @@ TEST(BicycleTests, Unconstrained_Turn90) {
   const float h = tf / static_cast<double>(N);
 
   // Objective
-  VectorXd Qd = VectorXd::Constant(n, 1e-2);
-  VectorXd Rd = VectorXd::Constant(m, 1e-3);
-  VectorXd Qdf = VectorXd::Constant(n, 1e1);
-  VectorXd x0(n);
-  VectorXd xf(n);
-  VectorXd uf(m);
+  Vector Qd = Vector::Constant(n, 1e-2);
+  Vector Rd = Vector::Constant(m, 1e-3);
+  Vector Qdf = Vector::Constant(n, 1e1);
+  Vector x0(n);
+  Vector xf(n);
+  Vector uf(m);
   x0.setZero();
   xf << 1, 2, M_PI_2, 0.0;
   uf.setZero();
@@ -100,11 +100,11 @@ TEST(BicycleTests, Unconstrained_Turn90) {
   EXPECT_TRUE(solver.IsInitialized());
 
   // Set initial trajectory
-  VectorXd u0 = VectorXd::Constant(m, 0.0);
+  Vector u0 = Vector::Constant(m, 0.0);
   u0 << 0.5, 0;
   solver.SetInput(u0.data(), m);
   solver.OpenLoopRollout();
-  VectorXd x(n);
+  Vector x(n);
   solver.GetState(x.data(), N);
   PrintVectorRow("xN = ", x);
 
@@ -122,7 +122,7 @@ TEST(BicycleTests, Unconstrained_Turn90) {
   fmt::print("status = {}\n", (int)status);
 
   // Final state
-  VectorXd xN(n);
+  Vector xN(n);
   solver.GetState(xN.data(), N);
   PrintVectorRow("xN = ", xN);
   EXPECT_LT((xN - xf).norm(), 1e-2);
@@ -134,12 +134,12 @@ TEST(BicycleTest, Tracking) {
   const int N = 30;
 
   // Objective
-  VectorXd Qd = VectorXd::Constant(n, 1e-2);
-  VectorXd Rd = VectorXd::Constant(m, 1e-3);
-  VectorXd Qdf = VectorXd::Constant(n, 1e1);
-  VectorXd x0(n);
-  VectorXd xf(n);
-  VectorXd uf(m);
+  Vector Qd = Vector::Constant(n, 1e-2);
+  Vector Rd = Vector::Constant(m, 1e-3);
+  Vector Qdf = Vector::Constant(n, 1e1);
+  Vector x0(n);
+  Vector xf(n);
+  Vector uf(m);
   x0.setZero();
   xf << 1, 2, M_PI_2, 0.0;
   uf.setZero();
@@ -208,14 +208,14 @@ TEST(BicycleTest, Tracking) {
   err = solver.SetInitialState(x_ref[0].data(), n);
   EXPECT_EQ(err, ErrorCodes::NoError);
 
-  // Initial Solver
+  // Initialize Solver
   err = solver.Initialize();
   EXPECT_EQ(err, ErrorCodes::NoError);
   EXPECT_TRUE(solver.IsInitialized());
 
   // Set Initial Trajectory
   a_float average_speed = u_ref[0][0];
-  VectorXd u0(m);
+  Vector u0(m);
   u0 << average_speed, 0.0;
   err = solver.SetInput(u0.data(), m);
   EXPECT_EQ(err, ErrorCodes::NoError);

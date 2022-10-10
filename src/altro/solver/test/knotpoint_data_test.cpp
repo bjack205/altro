@@ -115,11 +115,11 @@ TEST(KnotPointDataTests, CalcCostExpansion) {
 
   // Initialize the terminal knot point
   KnotPointData term(1, true);
-  res = term.SetDimension(n, 0);
+  res = term.SetDimension(n, m);
   EXPECT_EQ(res, ErrorCodes::NoError);
   res = term.Initialize();
   EXPECT_EQ(res, ErrorCodes::CostFunNotSet);
-  term.SetDiagonalCost(n, 0, Qd.data(), nullptr, q.data(), nullptr, c);
+  term.SetDiagonalCost(n, m, Qd.data(), nullptr, q.data(), nullptr, c);
   res = term.Initialize();
   EXPECT_EQ(res, ErrorCodes::NoError);
 

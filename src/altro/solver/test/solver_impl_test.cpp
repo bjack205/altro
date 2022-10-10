@@ -76,10 +76,10 @@ class SolverImplTest : public ::testing::Test {
       EXPECT_EQ(err, ErrorCodes::NoError);
       EXPECT_TRUE(solver.data_[k].IsInitialized());
     }
-    err = solver.data_[N].SetDimension(n, 0);
+    err = solver.data_[N].SetDimension(n, m);
     EXPECT_EQ(err, ErrorCodes::NoError);
 
-    err = solver.data_[N].SetDiagonalCost(n, 0, Qfd.data(), nullptr, q.data(), nullptr, 0.0);
+    err = solver.data_[N].SetDiagonalCost(n, m, Qfd.data(), nullptr, q.data(), nullptr, 0.0);
     EXPECT_EQ(err, ErrorCodes::NoError);
 
     err = solver.data_[N].Initialize();

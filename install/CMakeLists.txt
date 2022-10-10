@@ -7,10 +7,10 @@ set(CMAKE_INSTALL_DOCDIR ${CMAKE_INSTALL_DATAROOTDIR}/doc/${PROJECT_NAME})
 #install(TARGETS fmt EXPORT AltroCppTargets)
 
 # Add interface to altrocpp export
-set_target_properties(altrocpp_interface PROPERTIES
-  EXPORT_NAME interface
-)
-install(TARGETS altrocpp_interface EXPORT AltroCppTargets)  # legal after 3.14
+#set_target_properties(altrocpp_interface PROPERTIES
+#  EXPORT_NAME interface
+#)
+#install(TARGETS altrocpp_interface EXPORT AltroCppTargets)  # legal after 3.14
 
 # Install targets from this project
 set(ALTRO_INSTALL_CMAKE_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})  # location of version and config files

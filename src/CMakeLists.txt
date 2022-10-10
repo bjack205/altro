@@ -1,6 +1,6 @@
 add_subdirectory(tvlqr)
 add_subdirectory(linesearch)
-add_subdirectory(altrocpp_interface)
+#add_subdirectory(altrocpp_interface)
 add_subdirectory(altro)
 
 ## TODO: Use target_sources(FILE_SET)  (new in 3.23)
