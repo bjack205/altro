@@ -5,9 +5,7 @@
 
 #include "solver.hpp"
 
-//#include "altro/common/knotpoint.hpp"
 #include "altro/utils/formatting.hpp"
-//#include "altrocpp_interface/altrocpp_interface.hpp"
 #include "tvlqr/tvlqr.h"
 
 namespace altro {
@@ -19,8 +17,6 @@ SolverImpl::SolverImpl(int N)
       h_(N),
       opts(),
       stats(),
-//      problem_(N),
-//      alsolver_(N),
       x_(N + 1, nullptr),
       u_(N, nullptr),
       y_(N + 1, nullptr),
@@ -46,8 +42,6 @@ SolverImpl::SolverImpl(int N)
       Qux_tmp_(N, nullptr),
       Qx_tmp_(N + 1, nullptr),
       Qu_tmp_(N, nullptr) {
-//  altro::TrajectoryXXd traj(0, 0, N);
-//  trajectory_ = std::make_shared<altro::TrajectoryXXd>(traj);
 
   // Initialize knot point data
   for (int k = 0; k <= N; ++k) {
@@ -57,24 +51,6 @@ SolverImpl::SolverImpl(int N)
 }
 
 ErrorCodes SolverImpl::Initialize() {
-  //  alsolver_.InitializeFromProblem(problem_);
-  //
-  //  // Initialize the trajectory
-  //  using KnotPointXXd = KnotPoint<Eigen::Dynamic, Eigen::Dynamic>;
-  //  std::vector<KnotPointXXd> knotpoints;
-  //  float t = 0.0;
-  //  for (int k = 0; k < horizon_length_ + 1; ++k) {
-  //    VectorXd x(nx_[k]);
-  //    VectorXd u(nu_[k]);
-  //    x.setZero();
-  //    u.setZero();
-  //    KnotPointXXd z(x, u, t, h_[k]);
-  //    knotpoints.push_back(std::move(z));
-  //    t += h_[k];  // note this results in roundoff error
-  //  }
-  //  trajectory_ = std::make_shared<TrajectoryXXd>(knotpoints);
-  //  alsolver_.SetTrajectory(trajectory_);
-  //
   // Initialize knot point data
   ErrorCodes err;
   for (auto& data : data_) {
@@ -133,28 +109,6 @@ ErrorCodes SolverImpl::Initialize() {
   return ErrorCodes::NoError;
 }
 
-//void SolverImpl::SetCppSolverOptions() {
-//  SolverOptions& cppopts = alsolver_.GetOptions();
-//  cppopts.cost_tolerance = opts.tol_cost;
-//  cppopts.gradient_tolerance = opts.tol_stationarity;
-//  cppopts.maximum_penalty = opts.penalty_max;
-//  cppopts.initial_penalty = opts.penalty_initial;
-//  SolverOptions& ilqropts = alsolver_.GetiLQRSolver().GetOptions();
-//  switch (opts.verbose) {
-//    case Verbosity::Silent:
-//      ilqropts.verbose = LogLevel::kSilent;
-//      break;
-//    case Verbosity::Outer:
-//      ilqropts.verbose = LogLevel::kOuter;
-//      break;
-//    case Verbosity::Inner:
-//      ilqropts.verbose = LogLevel::kInner;
-//      break;
-//    case Verbosity::LineSearch:
-//      ilqropts.verbose = LogLevel::kInner;
-//      break;
-//  }
-//}
 
 /////////////////////////////////////////////
 // Rollouts
@@ -218,7 +172,6 @@ a_float SolverImpl::CalcCost() {
   constraint_vals_up_to_date_ = true;
   projected_duals_up_to_date_ = true;
   return cost;
-  //  return alsolver_.GetiLQRSolver().Cost();
 }
 
 ErrorCodes SolverImpl::CalcCostGradient() {
@@ -237,31 +190,13 @@ ErrorCodes SolverImpl::CalcCostGradient() {
 ErrorCodes SolverImpl::CalcExpansions() {
   // TODO: do this in parallel
   // TODO: don't calculate anything that depends on the initial state?
-  //  if (constraint_vals_up_to_date_) fmt::print("    Constraints already up-to-date (CalcAll)\n");
-  //  if (projected_duals_up_to_date_) fmt::print("    Proj Duals already up-to-date (CalcAll)\n");
-  //  if (dynamics_jacs_up_to_date_) fmt::print("    Dynamics Jacs already up-to-date (CalcAll)\n");
-  //  if (constraint_jacs_up_to_date_) fmt::print("    Con Jacs already up-to-date (CalcAll)\n");
-  //  if (conic_jacs_up_to_date_) fmt::print("    Conic Jacs already up-to-date (CalcAll)\n");
   if (conic_hessians_up_to_date_) fmt::print("    Conic hessians already up-to-date (CalcAll)\n");
-  //  if (cost_gradients_up_to_date_) fmt::print("    Cost grads already up-to-date (CalcAll)\n");
   if (cost_hessians_up_to_date_) fmt::print("    Cost hessians already up-to-date (CalcAll)\n");
   for (int k = 0; k <= horizon_length_; ++k) {
     KnotPointData& knot_point = data_[k];
-    //    knot_point.CalcConstraints();
-    //    knot_point.CalcProjectedDuals();
-    //    knot_point.CalcDynamicsExpansion();
-    //    knot_point.CalcConstraintJacobians();
     knot_point.CalcCostHessian();
-    //    knot_point.CalcCostExpansion(true);  // updates constraint Jacobians, conic Jacobian and
-    //    Hessian
   }
-  //  constraint_vals_up_to_date_ = true;
-  //  projected_duals_up_to_date_ = true;
-  //  dynamics_jacs_up_to_date_ = true;
-  //  constraint_jacs_up_to_date_ = true;
-  //  conic_jacs_up_to_date_ = true;
   conic_hessians_up_to_date_ = true;
-  //  cost_gradients_up_to_date_ = true;
   cost_hessians_up_to_date_ = true;
   return ErrorCodes::NoError;
 }
@@ -289,13 +224,10 @@ a_float SolverImpl::Stationarity() {
 
 a_float SolverImpl::Feasibility() {
   a_float viol = 0;
-  //  if (constraint_vals_up_to_date_) fmt::print("     Constraints already up-to-date (Feas)\n");
   for (int k = 0; k <= horizon_length_; ++k) {
     KnotPointData& kp = data_[k];
-    //    kp.CalcConstraints();  // TODO: can we avoid this call?
     viol = std::max(viol, kp.CalcViolations());
   }
-  //  constraint_vals_up_to_date_ = true;
   return viol;
 }
 
@@ -419,9 +351,6 @@ ErrorCodes SolverImpl::MeritFunction(a_float alpha, a_float* phi, a_float* dphi)
     cost_gradients_up_to_date_ = true;
     constraint_jacs_up_to_date_ = true;
     conic_jacs_up_to_date_ = true;
-    //    fmt::print("      alpha = {}, phi = {}, dphi = {}\n", alpha, *phi, *dphi);
-  } else {
-    //    fmt::print("      alpha = {}, phi = {}\n", alpha, *phi);
   }
   return ErrorCodes::NoError;
 }
@@ -453,9 +382,6 @@ ErrorCodes SolverImpl::BackwardPass() {
 // Outer Loop (AL) Updates
 /////////////////////////////////////////////
 ErrorCodes SolverImpl::DualUpdate() {
-  //  if (projected_duals_up_to_date_) fmt::print("    Projected duals already up-to-date
-  //  (DualUp)\n");
-  if (!constraint_vals_up_to_date_) fmt::print("    Constraint vals out-of-date (DualUp)\n");
   // Assumes constraint are already up-to-date
   if (!IsInitialized()) return ErrorCodes::SolverNotInitialized;
   for (int k = 0; k <= horizon_length_; ++k) {
@@ -473,8 +399,6 @@ ErrorCodes SolverImpl::PenaltyUpdate() {
   if (!IsInitialized()) return ErrorCodes::SolverAlreadyInitialized;
   for (int k = 0; k <= horizon_length_; ++k) {
     data_[k].PenaltyUpdate(opts.penalty_scaling, opts.penalty_max);
-    //    data_[k].CalcProjectedDuals();
-    //    data_[k].CalcProjectedDuals();
   }
   rho_ = std::min(rho_ * opts.penalty_scaling, opts.penalty_max);
   projected_duals_up_to_date_ = false;

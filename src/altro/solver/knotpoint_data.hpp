@@ -78,10 +78,6 @@ class KnotPointData {
   ErrorCodes DualUpdate();
   a_float CalcViolations();
   void PenaltyUpdate(a_float scaling, a_float penalty_max);
-//  ErrorCodes CalcActionValueExpansion(const KnotPointData &next);
-//  ErrorCodes CalcGains();
-//  ErrorCodes CalcCostToGo();
-//  ErrorCodes CalcTerminalCostToGo();
 
   // Getters
   int GetNextStateDim() const { return num_next_state_; }

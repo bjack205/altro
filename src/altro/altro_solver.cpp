@@ -16,13 +16,7 @@ namespace altro {
 altro::ALTROSolver::ALTROSolver(int horizon_length)
     : solver_(std::make_unique<SolverImpl>(horizon_length)) {}
 
-// ALTROSolver::ALTROSolver(const ALTROSolver& other)
-//     : solver_(std::make_unique<SolverImpl>(*other.solver_)) {}
 ALTROSolver::ALTROSolver(ALTROSolver &&other) = default;
-// ALTROSolver& ALTROSolver::operator=(const ALTROSolver& other) {
-//   *this->solver_ = *other.solver_;
-//   return *this;
-// }
 ALTROSolver &ALTROSolver::operator=(ALTROSolver &&other) = default;
 altro::ALTROSolver::~ALTROSolver() = default;
 
@@ -80,15 +74,9 @@ ErrorCodes ALTROSolver::SetExplicitDynamics(ExplicitDynamicsFunction dynamics_fu
   if (err != ErrorCodes::NoError) return err;
 
   for (int k = k_start; k < k_stop; ++k) {
-//    int n = this->GetStateDim(k);
-//    int m = this->GetInputDim(k);
     err = solver_->data_[k].SetDynamics(dynamics_function, dynamics_jacobian);
     if (err != ErrorCodes::NoError) return err;
 
-//    // AltroCpp Interface
-//    cpp_interface::GeneralDiscreteDynamics dynamics(n, m, dynamics_function, dynamics_jacobian);
-//    solver_->problem_.SetDynamics(
-//        std::make_shared<cpp_interface::GeneralDiscreteDynamics>(dynamics), k);
   }
   return ErrorCodes::NoError;
 }
@@ -131,8 +119,6 @@ ErrorCodes ALTROSolver::SetDiagonalCost(int num_states, int num_inputs, const a_
 ErrorCodes ALTROSolver::SetQuadraticCost(int num_states, int num_inputs, const a_float *Q,
                                          const a_float *R, const a_float *H, const a_float *q,
                                          const a_float *r, a_float c, int k_start, int k_stop) {
-//  using MatrixXd = Eigen::Matrix<a_float, Eigen::Dynamic, Eigen::Dynamic>;
-//  using VectorXd = Eigen::Vector<a_float, Eigen::Dynamic>;
   ErrorCodes err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
   err = AssertDimensionsAreSet(k_start, k_stop, "Cannot set the cost function");
   if (err != ErrorCodes::NoError) return err;
@@ -143,16 +129,6 @@ ErrorCodes ALTROSolver::SetQuadraticCost(int num_states, int num_inputs, const a
     if (n != num_states) return ErrorCodes::DimensionMismatch;
     if (k != GetHorizonLength() && m != num_inputs) return ErrorCodes::DimensionMismatch;
     solver_->data_[k].SetQuadraticCost(n, m, Q, R, H, q, r, c);
-
-//    // AltroCpp interface
-//    MatrixXd Qmat = Eigen::Map<const MatrixXd>(Q, n, n);
-//    MatrixXd Rmat = Eigen::Map<const MatrixXd>(R, m, m);
-//    MatrixXd Hmat = Eigen::Map<const MatrixXd>(H, m, n);
-//    VectorXd qvec = Eigen::Map<const VectorXd>(q, n);
-//    VectorXd rvec = Eigen::Map<const VectorXd>(r, m);
-//    bool is_terminal = k == this->GetHorizonLength();
-//    cpp_interface::QuadraticCost cost(Qmat, Rmat, Hmat, qvec, rvec, c, is_terminal);
-//    solver_->problem_.SetCostFunction(std::make_shared<cpp_interface::QuadraticCost>(cost), k);
 
     // New interface
     solver_->data_[k].SetQuadraticCost(n, m, Q, R, H, q, r, c);
@@ -192,14 +168,6 @@ ErrorCodes ALTROSolver::SetLQRCost(int num_states, int num_inputs, const a_float
       c += 0.5 * uref.transpose() * Rd.asDiagonal() * uref;
     }
     solver_->data_[k].SetDiagonalCost(n, m, Q_diag, R_diag, q.data(), r.data(), c);
-
-//    // AltroCpp interface
-//    Matrix Qmat = Eigen::Map<const Vector>(Q_diag, n).asDiagonal();
-//    Matrix Rmat = Eigen::Map<const Vector>(R_diag, m).asDiagonal();
-//    bool is_terminal = k == this->GetHorizonLength();
-//    cpp_interface::QuadraticCost cost =
-//        cpp_interface::QuadraticCost::LQRCost(Qmat, Rmat, xref.eval(), uref.eval(), is_terminal);
-//    solver_->problem_.SetCostFunction(std::make_shared<cpp_interface::QuadraticCost>(cost), k);
   }
   return ErrorCodes::NoError;
 }
@@ -219,10 +187,6 @@ ErrorCodes ALTROSolver::SetInitialState(const double *x0, int n) {
                        ErrorCodes::DimensionMismatch);
   }
   solver_->initial_state_ = Eigen::Map<const Eigen::VectorXd>(x0, n);
-
-//  // AltroCpp Interface
-//  VectorXd x0_vec = Eigen::Map<const VectorXd>(x0, n);
-//  solver_->problem_.SetInitialState(x0_vec);
   return ErrorCodes::NoError;
 }
 
@@ -242,8 +206,6 @@ ErrorCodes ALTROSolver::SetConstraint(ConstraintFunction constraint_function,
   if (con_inds) con_inds->reserve(num_indices);
 
   for (int k = k_start; k < k_stop; ++k) {
-    //    int n = GetStateDim(k);
-    //    int m = GetInputDim(k);
     std::string label_k = label;
     if (num_indices != 1) {
       label_k += "_" + std::to_string(k);
@@ -254,22 +216,6 @@ ErrorCodes ALTROSolver::SetConstraint(ConstraintFunction constraint_function,
     solver_->data_[k].SetConstraint(constraint_function, constraint_jacobian, dim, constraint_type,
                                     label);
 
-    // AltroCpp Interface
-    //    if (constraint_type == ConstraintType::EQUALITY) {
-    //      cpp_interface::EqualityConstraint eq(n, m, dim, constraint_function,
-    //      constraint_jacobian,
-    //                                           label_k);
-    //      solver_->problem_.SetConstraint(
-    //          std::make_shared<cpp_interface::EqualityConstraint>(std::move(eq)), k);
-    //      ncon = solver_->problem_.GetNumEqualityConstraints(k);
-    //    } else if (constraint_type == ConstraintType::INEQUALITY) {
-    //      cpp_interface::InequalityConstraint ineq(n, m, dim, constraint_function,
-    //      constraint_jacobian,
-    //                                               label_k);
-    //      solver_->problem_.SetConstraint(
-    //          std::make_shared<cpp_interface::InequalityConstraint>(std::move(ineq)), k);
-    //      ncon = solver_->problem_.GetNumInequalityConstraints(k);
-    //    }
 
     // Set index
     ConstraintIndex idx(k, ncon);
@@ -291,9 +237,6 @@ ErrorCodes ALTROSolver::SetState(const a_float *x, int n, int k_start, int k_sto
   for (int k = k_start; k < k_stop; ++k) {
     AssertStateDim(k, n);
     solver_->data_[k].x_ = Eigen::Map<const Vector>(x, n);
-
-    // AltroCpp Interface
-//    solver_->trajectory_->State(k) = Eigen::Map<const Vector>(x, n);
   }
   return ErrorCodes::NoError;
 }
@@ -305,9 +248,6 @@ ErrorCodes ALTROSolver::SetInput(const a_float *u, int m, int k_start, int k_sto
   for (int k = k_start; k < k_stop; ++k) {
     AssertInputDim(k, m);
     solver_->data_[k].u_ = Eigen::Map<const Vector>(u, m);
-
-    // AltroCpp Interface
-//    solver_->trajectory_->Control(k) = Eigen::Map<const Vector>(u, m);
   }
   return ErrorCodes::NoError;
 }
@@ -380,7 +320,6 @@ ErrorCodes ALTROSolver::GetState(a_float *x, int k) const {
 
   int n = GetStateDim(k);
   Eigen::Map<Eigen::VectorXd>(x, n) = solver_->data_[k].x_;
-  //  Eigen::Map<Eigen::VectorXd>(x, n) = solver_->trajectory_->State(k);
   return ErrorCodes::NoError;
 }
 
@@ -394,7 +333,6 @@ ErrorCodes ALTROSolver::GetInput(a_float *u, int k) const {
 
   int m = GetInputDim(k);
   Eigen::Map<Eigen::VectorXd>(u, m) = solver_->data_[k].u_;
-  //  Eigen::Map<Eigen::VectorXd>(u, m) = solver_->trajectory_->Control(k);
   return ErrorCodes::NoError;
 }
 
