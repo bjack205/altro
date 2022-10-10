@@ -44,7 +44,7 @@ class ALTROSolver {
    * @param k_stop (optional) Terminal (non-inclusive) knot point index.
    *                          If specified, sets all of the knot points in range `[k_start, k_stop)`
    */
-  ErrorCodes SetDimension(int num_states, int num_inputs, int k_start, int k_stop = 0);
+  ErrorCodes SetDimension(int num_states, int num_inputs, int k_start = AllIndices, int k_stop = 0);
 
   /**
    * @brief Set the time step between knot point index `k` and `k + 1`.
@@ -52,7 +52,7 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal knot point index (non-inclusive).
    */
-  ErrorCodes SetTimeStep(float h, int k_start = 0, int k_stop = 0);
+  ErrorCodes SetTimeStep(float h, int k_start = AllIndices, int k_stop = 0);
 
   /**
    * @brief Specify the dynamics function and dynamics Jacobian at a knot point (or range or knot
@@ -80,8 +80,8 @@ class ALTROSolver {
    * @param k_stop (optional) Terminal (non-inclusive) knot point index.
    */
   ErrorCodes SetExplicitDynamics(ExplicitDynamicsFunction dynamics_function,
-                                 ExplicitDynamicsJacobian dynamics_jacobian, int k_start,
-                                 int k_stop = 0);
+                                 ExplicitDynamicsJacobian dynamics_jacobian,
+                                 int k_start = AllIndices, int k_stop = 0);
 
   /**
    * @brief Specify the dynamics function and dynamics Jacobian at a knot point (or range or knot
@@ -136,7 +136,7 @@ class ALTROSolver {
    * @param k_stop
    */
   ErrorCodes SetCostFunction(CostFunction cost_function, CostGradient cost_gradient,
-                             CostHessian cost_hessian, int k_start, int k_stop = 0);
+                             CostHessian cost_hessian, int k_start = AllIndices, int k_stop = 0);
 
   //  /**
   //   * @brief Set cost function properties
@@ -171,7 +171,7 @@ class ALTROSolver {
    */
   ErrorCodes SetDiagonalCost(int num_states, int num_inputs, const a_float* Q_diag,
                              const a_float* R_diag, const a_float* q, const a_float* r, a_float c,
-                             int k_start, int k_stop = 0);
+                             int k_start = AllIndices, int k_stop = 0);
 
   /**
    * @brief Set a general (dense) quadratic cost
@@ -195,7 +195,7 @@ class ALTROSolver {
    */
   ErrorCodes SetQuadraticCost(int num_states, int num_inputs, const a_float* Q, const a_float* R,
                               const a_float* H, const a_float* q, const a_float* r, a_float c,
-                              int k_start, int k_stop = 0);
+                              int k_start = AllIndices, int k_stop = 0);
 
   /**
    * @brief Set an LQR tracking objective
@@ -322,7 +322,7 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal knot point index (non-inclusive).
    */
-  ErrorCodes SetState(const a_float* x, int n, int k_start, int k_stop = 0);
+  ErrorCodes SetState(const a_float* x, int n, int k_start = AllIndices, int k_stop = 0);
 
   /**
    * @brief Set the input at a time step (or range of time steps). Used as the initial guess for the
@@ -334,7 +334,7 @@ class ALTROSolver {
    * @param k_start Knot point index
    * @param k_stop (optional) Terminal knot point index (non-inclusive).
    */
-  ErrorCodes SetInput(const a_float* u, int m, int k_start, int k_stop = 0);
+  ErrorCodes SetInput(const a_float* u, int m, int k_start = AllIndices, int k_stop = 0);
 
   /**
    * @brief Set the dual variable associated with dynamics constraint at a time step (or range of
@@ -360,6 +360,8 @@ class ALTROSolver {
   ErrorCodes SetDualStateLowerBound(const a_float* b_x_lower, int k_start, int k_stop = 0);
   ErrorCodes SetDualInputUpperBound(const a_float* b_u_upper, int k_start, int k_stop = 0);
   ErrorCodes SetDualInputLowerBound(const a_float* b_u_lower, int k_start, int k_stop = 0);
+
+  ErrorCodes OpenLoopRollout();
 
   /**********************************************
    * Options
@@ -421,7 +423,7 @@ class ALTROSolver {
 
  private:
   enum class LastIndexMode { Inclusive, Exclusive };
-  ErrorCodes CheckKnotPointIndices(int k_start, int& k_stop, LastIndexMode last_index) const;
+  ErrorCodes CheckKnotPointIndices(int& k_start, int& k_stop, LastIndexMode last_index) const;
   ErrorCodes AssertInitialized() const;
   ErrorCodes AssertDimensionsAreSet(int k_start, int k_stop, std::string msg = "") const;
   ErrorCodes AssertStateDim(int k, int n) const;

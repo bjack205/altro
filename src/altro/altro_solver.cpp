@@ -74,8 +74,9 @@ ErrorCodes ALTROSolver::SetTimeStep(float h, int k_start, int k_stop) {
 ErrorCodes ALTROSolver::SetExplicitDynamics(ExplicitDynamicsFunction dynamics_function,
                                             ExplicitDynamicsJacobian dynamics_jacobian, int k_start,
                                             int k_stop) {
-  ErrorCodes err = AssertDimensionsAreSet(k_stop, k_stop, "Cannot set the dynamics");
+  ErrorCodes err;
   err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Exclusive);
+  err = AssertDimensionsAreSet(k_start, k_stop, "Cannot set the dynamics");
   if (err != ErrorCodes::NoError) return err;
 
   for (int k = k_start; k < k_stop; ++k) {
@@ -304,6 +305,10 @@ ErrorCodes ALTROSolver::SetInput(const a_float *u, int m, int k_start, int k_sto
   return ErrorCodes::NoError;
 }
 
+ErrorCodes ALTROSolver::OpenLoopRollout() {
+  return solver_->OpenLoopRollout();
+}
+
 void ALTROSolver::SetOptions(const AltroOptions &opts) { solver_->opts = opts; }
 
 SolveStatus ALTROSolver::Solve() {
@@ -403,8 +408,9 @@ ErrorCodes ALTROSolver::AssertDimensionsAreSet(int k_start, int k_stop, std::str
   return ErrorCodes::NoError;
 }
 
-ErrorCodes ALTROSolver::CheckKnotPointIndices(int k_start, int &k_stop,
+ErrorCodes ALTROSolver::CheckKnotPointIndices(int &k_start, int &k_stop,
                                               LastIndexMode last_index) const {
+
   // Get upper index range
   int terminal_index = 0;
   switch (last_index) {
@@ -414,6 +420,12 @@ ErrorCodes ALTROSolver::CheckKnotPointIndices(int k_start, int &k_stop,
     case LastIndexMode::Exclusive:
       terminal_index = GetHorizonLength() - 1;
       break;
+  }
+
+  // Check if it should default to all indices (no indices passed in)
+  if (k_start == AllIndices && k_stop == 0) {
+    k_start = 0;
+    k_stop = LastIndex;
   }
 
   // Automatic full range selection

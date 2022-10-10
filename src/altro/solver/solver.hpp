@@ -22,6 +22,7 @@ class KnotPointData;
 class SolverImpl {
  public:
   explicit SolverImpl(int N);
+  ~SolverImpl() = default;
 
   bool IsInitialized() const { return is_initialized_; }
 
