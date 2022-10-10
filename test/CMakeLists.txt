@@ -50,3 +50,16 @@ target_link_libraries(pendulum_test
   Eigen3::Eigen
   altro::test_utils
 )
+
+add_executable(bicycle_test
+  bicycle_test.cpp
+)
+target_link_libraries(bicycle_test
+  PRIVATE
+  gtest_main
+  altro::altro
+  altro::test_utils
+  fmt::fmt
+  Eigen3::Eigen
+)
+gtest_discover_tests(bicycle_test)

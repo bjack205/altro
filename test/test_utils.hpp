@@ -26,3 +26,26 @@ using ContinuousDynamicsJacobian = std::function<void(double*, const double*, co
 
 altro::ExplicitDynamicsFunction MidpointDynamics(int n, int m, ContinuousDynamicsFunction f);
 altro::ExplicitDynamicsJacobian MidpointJacobian(int n, int m, ContinuousDynamicsFunction f, ContinuousDynamicsJacobian jac);
+
+class BicycleModel {
+ public:
+  enum class ReferenceFrame { CenterOfGravity, Rear, Front };
+  explicit BicycleModel(ReferenceFrame frame = ReferenceFrame::CenterOfGravity) : reference_frame_(frame) {}
+
+  void Dynamics(double *x_dot, const double *x, const double *u) const;
+  void Jacobian(double *jac, const double *x, const double *u) const;
+
+  void SetLengths(double length, double length_to_rear_wheel_from_cg) {
+    length_ = length;
+    distance_to_rear_wheels_ = length_to_rear_wheel_from_cg;
+  }
+
+  static constexpr int NumStates = 4;
+  static constexpr int NumInputs = 2;
+
+ private:
+  ReferenceFrame reference_frame_;
+  double length_ = 2.7;
+  double distance_to_rear_wheels_ = 1.5;
+
+};

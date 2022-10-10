@@ -14,6 +14,7 @@ using a_float = double;
 class ALTROSolver;
 
 constexpr int LastIndex = -1;
+constexpr int AllIndices = -2;
 
 enum class SolveStatus {
   Success,
