@@ -50,7 +50,7 @@ const char* ErrorCodeToString(ErrorCodes err) {
     case ErrorCodes::DynamicsFunNotSet:
       return "dynamics function not set";
       break;
-    case ErrorCodes::InvalidOpAtTeriminalKnotPoint:
+    case ErrorCodes::InvalidOptAtTerminalKnotPoint:
       return "invalid operation at terminal knot point index";
       break;
     case ErrorCodes::MaxConstraintsExceeded:
@@ -85,6 +85,9 @@ const char* ErrorCodeToString(ErrorCodes err) {
       break;
     case ErrorCodes::NonPositivePenalty:
       return "Penalty must be strictly positive";
+      break;
+    case ErrorCodes::CostNotQuadratic:
+      return "Invalid operation. Cost function not quadratic";
       break;
   }
   return nullptr;

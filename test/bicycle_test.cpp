@@ -127,3 +127,115 @@ TEST(BicycleTests, Unconstrained_Turn90) {
   PrintVectorRow("xN = ", xN);
   EXPECT_LT((xN - xf).norm(), 1e-2);
 }
+
+TEST(BicycleTest, Tracking) {
+  const int n = BicycleModel::NumStates;
+  const int m = BicycleModel::NumInputs;
+  const int N = 30;
+
+  // Objective
+  VectorXd Qd = VectorXd::Constant(n, 1e-2);
+  VectorXd Rd = VectorXd::Constant(m, 1e-3);
+  VectorXd Qdf = VectorXd::Constant(n, 1e1);
+  VectorXd x0(n);
+  VectorXd xf(n);
+  VectorXd uf(m);
+  x0.setZero();
+  xf << 1, 2, M_PI_2, 0.0;
+  uf.setZero();
+
+  // Dynamics
+  auto model_ptr = std::make_shared<BicycleModel>();
+  ContinuousDynamicsFunction dyn0 = [model_ptr](double *x_dot, const double *x, const double *u) {
+    model_ptr->Dynamics(x_dot, x, u);
+  };
+  ContinuousDynamicsJacobian jac0 = [model_ptr](double *jac, const double *x, const double *u) {
+    model_ptr->Jacobian(jac, x, u);
+  };
+  auto dyn = MidpointDynamics(n, m, dyn0);
+  auto jac = MidpointJacobian(n, m, dyn0, jac0);
+
+  // Define the problem
+  ErrorCodes err;
+  ALTROSolver solver(N);
+
+  // Dimension and Time step
+  err = solver.SetDimension(n, m);
+  EXPECT_EQ(err, ErrorCodes::NoError);
+
+  // Dynamics
+  err = solver.SetExplicitDynamics(dyn, jac);
+  EXPECT_EQ(err, ErrorCodes::NoError);
+
+  // Read Reference Trajectory
+  std::vector<Eigen::Vector4d> x_ref;
+  std::vector<Eigen::Vector2d> u_ref;
+  int N_ref;
+  float t_ref;
+  ReadScottyTrajectory(&N_ref, &t_ref, &x_ref, &u_ref);
+
+  float h = t_ref / static_cast<double>(N_ref);
+  err = solver.SetTimeStep(h);
+  fmt::print("h = {}\n", h);
+  EXPECT_EQ(err, ErrorCodes::NoError);
+
+  // Set Tracking Cost Function
+  for (int k = 0; k <= N; ++k) {
+    err = solver.SetLQRCost(n, m, Qd.data(), Rd.data(), x_ref.at(k).data(), u_ref.at(k).data(), k);
+    EXPECT_EQ(err, ErrorCodes::NoError);
+  }
+
+  // Constraints
+  auto steering_angle_con = [](a_float *c, const a_float *x, const a_float *u) {
+    (void)u;
+    a_float delta_max = 30 * M_PI / 180.0;
+    c[0] = x[3] - delta_max;
+    c[1] = -delta_max - x[3];
+  };
+  auto steering_angle_jac = [](a_float *jac, const a_float *x, const a_float *u) {
+    (void)x;
+    (void)u;
+    Eigen::Map<Eigen::Matrix<a_float, 2, 6>> J(jac);
+    J.setZero();
+    J(0, 3) = 1.0;
+    J(1, 3) = -1.0;
+  };
+  err = solver.SetConstraint(steering_angle_con, steering_angle_jac, 2, ConstraintType::INEQUALITY,
+                             "steering angle bound", 0, N + 1);
+  EXPECT_EQ(err, ErrorCodes::NoError);
+
+  // Initial State
+  err = solver.SetInitialState(x_ref[0].data(), n);
+  EXPECT_EQ(err, ErrorCodes::NoError);
+
+  // Initial Solver
+  err = solver.Initialize();
+  EXPECT_EQ(err, ErrorCodes::NoError);
+  EXPECT_TRUE(solver.IsInitialized());
+
+  // Set Initial Trajectory
+  a_float average_speed = u_ref[0][0];
+  VectorXd u0(m);
+  u0 << average_speed, 0.0;
+  err = solver.SetInput(u0.data(), m);
+  EXPECT_EQ(err, ErrorCodes::NoError);
+  for (int k = 0; k <= N; ++k) {
+    solver.SetState(x_ref.at(k).data(), n, k);
+  }
+  a_float cost_initial = solver.CalcCost();
+  fmt::print("Initial cost = {}\n", cost_initial);
+  EXPECT_LT(cost_initial, 1e-6);
+
+  solver.OpenLoopRollout();
+  cost_initial = solver.CalcCost();
+  fmt::print("Initial cost = {}\n", cost_initial);
+
+  // Solve
+  AltroOptions opts;
+  opts.verbose = Verbosity::Inner;
+  opts.iterations_max = 80;
+  opts.use_backtracking_linesearch = false;
+  solver.SetOptions(opts);
+  SolveStatus status = solver.Solve();
+  EXPECT_EQ(status, SolveStatus::Success);
+}

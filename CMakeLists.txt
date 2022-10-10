@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.23)
 list(APPEND CMAKE_MESSAGE_CONTEXT altro)
 project(altro VERSION 0.1.0)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
 # Organization info
 set(ORGANIZATION_NAME_FULL "Robotic Exploration Lab")

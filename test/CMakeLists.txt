@@ -9,11 +9,18 @@ target_link_libraries(altro_test_utils
   fmt::fmt
   Eigen3::Eigen
   altro_impl
+
+  PRIVATE
+  nlohmann_json::nlohmann_json
 )
 add_library(altro::test_utils ALIAS altro_test_utils)
 target_include_directories(altro_test_utils
   INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+)
+target_compile_definitions(altro_test_utils
+  PUBLIC
+  ALTRO_TEST_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
 add_executable(altro_api

@@ -35,7 +35,7 @@ enum class ErrorCodes {
   TimestepNotPositive,
   CostFunNotSet,
   DynamicsFunNotSet,
-  InvalidOpAtTeriminalKnotPoint,
+  InvalidOptAtTerminalKnotPoint,
   MaxConstraintsExceeded,
   InvalidConstraintDim,
   CholeskyFailed,
@@ -46,6 +46,7 @@ enum class ErrorCodes {
   MeritFunctionGradientTooSmall,
   InvalidBoundConstraint,
   NonPositivePenalty,
+  CostNotQuadratic,
   FileError,
 };
 

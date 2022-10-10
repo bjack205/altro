@@ -229,6 +229,10 @@ ErrorCodes ALTROSolver::SetConstraint(ConstraintFunction constraint_function,
                                       int k_start, int k_stop,
                                       std::vector<ConstraintIndex> *con_inds) {
   ErrorCodes err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
+  if (IsInitialized()) {
+    return ALTRO_THROW("Cannot Set Constraints: Solver Already Initialized.",
+                ErrorCodes::SolverAlreadyInitialized);
+  }
   err = AssertDimensionsAreSet(k_start, k_stop, "Cannot set constraint");
   if (err != ErrorCodes::NoError) return err;
   int num_indices = k_stop - k_start;
@@ -244,8 +248,8 @@ ErrorCodes ALTROSolver::SetConstraint(ConstraintFunction constraint_function,
 
     // Add constraint to knot point
     int ncon = solver_->data_[k].NumConstraints();
-    solver_->data_[k].SetConstraint(constraint_function, constraint_jacobian,
-                                    dim, constraint_type, label);
+    solver_->data_[k].SetConstraint(constraint_function, constraint_jacobian, dim, constraint_type,
+                                    label);
 
     // AltroCpp Interface
     //    if (constraint_type == ConstraintType::EQUALITY) {
@@ -305,15 +309,34 @@ ErrorCodes ALTROSolver::SetInput(const a_float *u, int m, int k_start, int k_sto
   return ErrorCodes::NoError;
 }
 
-ErrorCodes ALTROSolver::OpenLoopRollout() {
-  return solver_->OpenLoopRollout();
-}
+ErrorCodes ALTROSolver::OpenLoopRollout() { return solver_->OpenLoopRollout(); }
 
 void ALTROSolver::SetOptions(const AltroOptions &opts) { solver_->opts = opts; }
 
 SolveStatus ALTROSolver::Solve() {
   solver_->Solve();
   return solver_->stats.status;
+}
+
+/***************************************************************************************************
+ * MPC Methods
+ ***************************************************************************************************/
+
+ErrorCodes ALTROSolver::UpdateLinearCosts(const altro::a_float *q, const altro::a_float *r,
+                                          int k_start, int k_stop) {
+  ErrorCodes err = AssertInitialized();
+  err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
+  if (err != ErrorCodes::NoError) {
+    return ALTRO_THROW(fmt::format("Error in UpdateLinearCosts with k in [{},{})", k_start, k_stop),
+                       err);
+  }
+  for (int k = k_start; k < k_stop; ++k) {
+    err = solver_->data_[k].UpdateLinearCosts(q, r);
+    if (err != ErrorCodes::NoError) {
+      return ALTRO_THROW(fmt::format("Error in UpdateLinearCosts with k = ", k), err);
+    }
+  }
+  return ErrorCodes::NoError;
 }
 
 /***************************************************************************************************
@@ -353,7 +376,7 @@ ErrorCodes ALTROSolver::GetState(a_float *x, int k) const {
   }
 
   int n = GetStateDim(k);
-  Eigen::Map<Eigen::VectorXd>(x, n) = solver_->data_[k].x;
+  Eigen::Map<Eigen::VectorXd>(x, n) = solver_->data_[k].x_;
   //  Eigen::Map<Eigen::VectorXd>(x, n) = solver_->trajectory_->State(k);
   return ErrorCodes::NoError;
 }
@@ -367,7 +390,7 @@ ErrorCodes ALTROSolver::GetInput(a_float *u, int k) const {
   }
 
   int m = GetInputDim(k);
-  Eigen::Map<Eigen::VectorXd>(u, m) = solver_->data_[k].u;
+  Eigen::Map<Eigen::VectorXd>(u, m) = solver_->data_[k].u_;
   //  Eigen::Map<Eigen::VectorXd>(u, m) = solver_->trajectory_->Control(k);
   return ErrorCodes::NoError;
 }
@@ -381,7 +404,7 @@ ErrorCodes ALTROSolver::GetDualDynamics(a_float *y, int k) const {
   }
 
   int n = GetStateDim(k);
-  Eigen::Map<Eigen::VectorXd>(y, n) = solver_->data_[k].y;
+  Eigen::Map<Eigen::VectorXd>(y, n) = solver_->data_[k].y_;
   return ErrorCodes::NoError;
 }
 
@@ -410,7 +433,6 @@ ErrorCodes ALTROSolver::AssertDimensionsAreSet(int k_start, int k_stop, std::str
 
 ErrorCodes ALTROSolver::CheckKnotPointIndices(int &k_start, int &k_stop,
                                               LastIndexMode last_index) const {
-
   // Get upper index range
   int terminal_index = 0;
   switch (last_index) {

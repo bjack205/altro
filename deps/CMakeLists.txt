@@ -30,6 +30,16 @@ if (ALTRO_ENABLE_ARDUINO_LIB_INSTALL)
   list(POP_BACK CMAKE_MESSAGE_CONTEXT)
 endif()
 
+# JSON
+list(APPEND CMAKE_MESSAGE_CONTEXT json)
+FetchContent_Declare(json
+    GIT_REPOSITORY https://github.com/nlohmann/json
+    GIT_TAG v3.11.2
+)
+FetchContent_MakeAvailable(json)
+list(POP_BACK CMAKE_MESSAGE_CONTEXT)
+
+# AltroCpp
 list(APPEND CMAKE_MESSAGE_CONTEXT altrocpp)
 FetchContent_Declare(altrocpp
   GIT_REPOSITORY https://github.com/bjack205/altro-cpp.git

@@ -364,6 +364,14 @@ class ALTROSolver {
   ErrorCodes OpenLoopRollout();
 
   /**********************************************
+   * MPC Methods
+   **********************************************/
+  ErrorCodes UpdateLinearCosts(const a_float* q, const a_float* r, int k_start = AllIndices,
+                               int k_stop = 0);
+
+  ErrorCodes ShiftTrajectory();
+
+  /**********************************************
    * Options
    **********************************************/
   void SetOptions(const AltroOptions& opts);

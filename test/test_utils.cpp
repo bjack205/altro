@@ -6,6 +6,14 @@
 #include "test_utils.hpp"
 
 #include <vector>
+#include <string>
+#include <fstream>
+#include <filesystem>
+
+#include "nlohmann/json.hpp"
+
+namespace fs = std::filesystem;
+using json = nlohmann::json;
 
 void discrete_double_integrator_dynamics(double *xnext, const double *x, const double *u, float h,
                                          int dim) {
@@ -228,3 +236,55 @@ void BicycleModel::Jacobian(double *jac, const double *x, const double *u) const
   J(2,4) = domega_dv;
   J(3,5) = 1.0;
 }
+
+void ReadScottyTrajectory(int *Nref, float *tref, std::vector<Eigen::Vector4d> *xref,
+                          std::vector<Eigen::Vector2d> *uref) {
+
+  (void)Nref;
+  (void)tref;
+  (void)xref;
+  (void)uref;
+  const int n = 4;
+  const int m = 2;
+  fs::path test_dir = ALTRO_TEST_DIR;
+  fs::path scotty_file = test_dir / "scotty.json";
+
+  std::ifstream f(scotty_file);
+  json data = json::parse(f);
+  auto it = data.find("N");
+  for (auto& el : data.items()) {
+    if (el.key() == "N") {
+      *Nref = el.value();
+    }
+    if (el.key() == "tf") {
+      *tref = el.value();
+    }
+    if (el.key() == "state_trajectory") {
+      int Nx = el.value().size();
+      Eigen::Vector4d x;
+      for (int k = 0; k < Nx; ++k) {
+        json& x_json = el.value().at(k);
+        if (x_json.size() != n) fmt::print("Got incorrect input size!\n");
+        for (int i = 0; i < n; ++i) {
+          x[i] = x_json[i];
+        }
+        xref->emplace_back(x);
+      }
+    }
+    if (el.key() == "input_trajectory") {
+      int Nu = el.value().size();
+      Eigen::Vector2d u;
+      for (int k = 0; k < Nu; ++k) {
+        json& u_json = el.value().at(k);
+        if (u_json.size() != m) fmt::print("Got incorrect input size!\n");
+        for (int i = 0; i < m; ++i) {
+          u[i] = u_json[i];
+        }
+        uref->emplace_back(u);
+      }
+    }
+  }
+  *Nref -= 1;
+  f.close();
+}
+

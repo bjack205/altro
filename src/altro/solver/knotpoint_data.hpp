@@ -70,6 +70,8 @@ class KnotPointData {
   ErrorCodes CalcConicJacobians();
   ErrorCodes CalcConicHessians();
 
+  ErrorCodes UpdateLinearCosts(const a_float *q, const a_float *r);
+
   a_float CalcConstraintCosts();
   ErrorCodes CalcConstraintCostGradients();
   ErrorCodes CalcConstraintCostHessians();
