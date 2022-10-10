@@ -41,11 +41,15 @@ class CubicLineSearch {
   int max_iters = 25;
   double alpha_max = 2.0;
   double beta_increase = 1.5;
+  double beta_decrease = 0.5;
   double min_interval_size = 1e-6;
   bool try_cubic_first = false;
+  bool use_backtracking_linesearch = false;
 
  private:
   double Zoom(MeritFun merit_fun, double alo, double ahi);
+
+  double SimpleBacktracking(MeritFun merit_fun, double alpha0);
 
   ReturnCodes return_code_;
   double c1_ = 1e-4;

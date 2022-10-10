@@ -236,30 +236,31 @@ ErrorCodes SolverImpl::CalcCostGradient() {
 ErrorCodes SolverImpl::CalcExpansions() {
   // TODO: do this in parallel
   // TODO: don't calculate anything that depends on the initial state?
-//  if (constraint_vals_up_to_date_) fmt::print("    Constraints already up-to-date (CalcAll)\n");
-//  if (projected_duals_up_to_date_) fmt::print("    Proj Duals already up-to-date (CalcAll)\n");
-//  if (dynamics_jacs_up_to_date_) fmt::print("    Dynamics Jacs already up-to-date (CalcAll)\n");
-//  if (constraint_jacs_up_to_date_) fmt::print("    Con Jacs already up-to-date (CalcAll)\n");
-//  if (conic_jacs_up_to_date_) fmt::print("    Conic Jacs already up-to-date (CalcAll)\n");
+  //  if (constraint_vals_up_to_date_) fmt::print("    Constraints already up-to-date (CalcAll)\n");
+  //  if (projected_duals_up_to_date_) fmt::print("    Proj Duals already up-to-date (CalcAll)\n");
+  //  if (dynamics_jacs_up_to_date_) fmt::print("    Dynamics Jacs already up-to-date (CalcAll)\n");
+  //  if (constraint_jacs_up_to_date_) fmt::print("    Con Jacs already up-to-date (CalcAll)\n");
+  //  if (conic_jacs_up_to_date_) fmt::print("    Conic Jacs already up-to-date (CalcAll)\n");
   if (conic_hessians_up_to_date_) fmt::print("    Conic hessians already up-to-date (CalcAll)\n");
-//  if (cost_gradients_up_to_date_) fmt::print("    Cost grads already up-to-date (CalcAll)\n");
+  //  if (cost_gradients_up_to_date_) fmt::print("    Cost grads already up-to-date (CalcAll)\n");
   if (cost_hessians_up_to_date_) fmt::print("    Cost hessians already up-to-date (CalcAll)\n");
   for (int k = 0; k <= horizon_length_; ++k) {
     KnotPointData& knot_point = data_[k];
-//    knot_point.CalcConstraints();
-//    knot_point.CalcProjectedDuals();
-//    knot_point.CalcDynamicsExpansion();
-//    knot_point.CalcConstraintJacobians();
+    //    knot_point.CalcConstraints();
+    //    knot_point.CalcProjectedDuals();
+    //    knot_point.CalcDynamicsExpansion();
+    //    knot_point.CalcConstraintJacobians();
     knot_point.CalcCostHessian();
-//    knot_point.CalcCostExpansion(true);  // updates constraint Jacobians, conic Jacobian and Hessian
+    //    knot_point.CalcCostExpansion(true);  // updates constraint Jacobians, conic Jacobian and
+    //    Hessian
   }
-//  constraint_vals_up_to_date_ = true;
-//  projected_duals_up_to_date_ = true;
-//  dynamics_jacs_up_to_date_ = true;
-//  constraint_jacs_up_to_date_ = true;
-//  conic_jacs_up_to_date_ = true;
+  //  constraint_vals_up_to_date_ = true;
+  //  projected_duals_up_to_date_ = true;
+  //  dynamics_jacs_up_to_date_ = true;
+  //  constraint_jacs_up_to_date_ = true;
+  //  conic_jacs_up_to_date_ = true;
   conic_hessians_up_to_date_ = true;
-//  cost_gradients_up_to_date_ = true;
+  //  cost_gradients_up_to_date_ = true;
   cost_hessians_up_to_date_ = true;
   return ErrorCodes::NoError;
 }
@@ -287,13 +288,13 @@ a_float SolverImpl::Stationarity() {
 
 a_float SolverImpl::Feasibility() {
   a_float viol = 0;
-//  if (constraint_vals_up_to_date_) fmt::print("     Constraints already up-to-date (Feas)\n");
+  //  if (constraint_vals_up_to_date_) fmt::print("     Constraints already up-to-date (Feas)\n");
   for (int k = 0; k <= horizon_length_; ++k) {
     KnotPointData& kp = data_[k];
-//    kp.CalcConstraints();  // TODO: can we avoid this call?
+    //    kp.CalcConstraints();  // TODO: can we avoid this call?
     viol = std::max(viol, kp.CalcViolations());
   }
-//  constraint_vals_up_to_date_ = true;
+  //  constraint_vals_up_to_date_ = true;
   return viol;
 }
 
@@ -317,6 +318,17 @@ ErrorCodes SolverImpl::ForwardPass(a_float* alpha) {
   ls_.GetFinalMeritValues(&phi_, &dphi_);
   auto res = ls_.GetStatus();
   ls_iters_ = ls_.Iterations();
+
+  // If a simple backtracking linesearch is used and it has to backtrack,
+  // the derivative information isn't calculated during the linesearch
+  if (opts.use_backtracking_linesearch && (std::abs(*alpha - 1.0) > 0)) {
+    for (int k = 0; k <= horizon_length_; ++k) {
+      data_[k].CalcDynamicsExpansion();
+      data_[k].CalcConstraintJacobians();
+      data_[k].CalcCostGradient();
+    }
+  }
+
   if (std::isnan(*alpha) || !(res == linesearch::CubicLineSearch::ReturnCodes::MINIMUM_FOUND ||
                               res == linesearch::CubicLineSearch::ReturnCodes::HIT_MAX_STEPSIZE)) {
     // TODO: Provide a more fine-grained return code
@@ -360,7 +372,8 @@ ErrorCodes SolverImpl::MeritFunction(a_float alpha, a_float* phi, a_float* dphi)
       // Calculate gradient of x and u with respect to alpha
       knot_point.CalcDynamicsExpansion();
       knot_point.du_da_ = -knot_point.K_ * knot_point.dx_da_ + knot_point.d_;
-      next_knot_point.dx_da_ = knot_point.A_ * knot_point.dx_da_ + knot_point.B_ * knot_point.du_da_;
+      next_knot_point.dx_da_ =
+          knot_point.A_ * knot_point.dx_da_ + knot_point.B_ * knot_point.du_da_;
 
       // Calculate the gradient of the cost with respect to alpha
       knot_point.CalcConstraintJacobians();
@@ -405,9 +418,9 @@ ErrorCodes SolverImpl::MeritFunction(a_float alpha, a_float* phi, a_float* dphi)
     cost_gradients_up_to_date_ = true;
     constraint_jacs_up_to_date_ = true;
     conic_jacs_up_to_date_ = true;
-//    fmt::print("      alpha = {}, phi = {}, dphi = {}\n", alpha, *phi, *dphi);
+    //    fmt::print("      alpha = {}, phi = {}, dphi = {}\n", alpha, *phi, *dphi);
   } else {
-//    fmt::print("      alpha = {}, phi = {}\n", alpha, *phi);
+    //    fmt::print("      alpha = {}, phi = {}\n", alpha, *phi);
   }
   return ErrorCodes::NoError;
 }
@@ -439,7 +452,8 @@ ErrorCodes SolverImpl::BackwardPass() {
 // Outer Loop (AL) Updates
 /////////////////////////////////////////////
 ErrorCodes SolverImpl::DualUpdate() {
-//  if (projected_duals_up_to_date_) fmt::print("    Projected duals already up-to-date (DualUp)\n");
+  //  if (projected_duals_up_to_date_) fmt::print("    Projected duals already up-to-date
+  //  (DualUp)\n");
   if (!constraint_vals_up_to_date_) fmt::print("    Constraint vals out-of-date (DualUp)\n");
   // Assumes constraint are already up-to-date
   if (!IsInitialized()) return ErrorCodes::SolverNotInitialized;
@@ -458,8 +472,8 @@ ErrorCodes SolverImpl::PenaltyUpdate() {
   if (!IsInitialized()) return ErrorCodes::SolverAlreadyInitialized;
   for (int k = 0; k <= horizon_length_; ++k) {
     data_[k].PenaltyUpdate(opts.penalty_scaling, opts.penalty_max);
-//    data_[k].CalcProjectedDuals();
-//    data_[k].CalcProjectedDuals();
+    //    data_[k].CalcProjectedDuals();
+    //    data_[k].CalcProjectedDuals();
   }
   rho_ = std::min(rho_ * opts.penalty_scaling, opts.penalty_max);
   projected_duals_up_to_date_ = false;
@@ -476,6 +490,7 @@ ErrorCodes SolverImpl::PenaltyUpdate() {
 ErrorCodes SolverImpl::Solve() {
   // TODO: Copy options to line search
   ErrorCodes err;
+  ls_.use_backtracking_linesearch = opts.use_backtracking_linesearch;
   rho_ = opts.penalty_initial;
 
   // Initial rollout
@@ -550,7 +565,8 @@ ErrorCodes SolverImpl::Solve() {
     // Print log
     fmt::print(
         "  iter = {:3d}, phi = {:8.4g} -> {:8.4g} ({:10.3g}), dphi = {:10.3g} -> {:10.3g}, alpha = "
-        "{:8.3g}, ls_iter = {:2d}, stat = {:8.3e}, feas = {:8.3e}, rho = {:7.2g}, dual update? {}\n",
+        "{:8.3g}, ls_iter = {:2d}, stat = {:8.3e}, feas = {:8.3e}, rho = {:7.2g}, dual update? "
+        "{}\n",
         iter, phi0_, phi_, cost_decrease, dphi0_, dphi_, alpha, ls_iters_, stationarity,
         feasibility, penalty, dual_update);
 

@@ -29,7 +29,7 @@ bool CubicLineSearch::SetVerbose(bool verbose) {
   return verbose_original;
 }
 
-void CubicLineSearch::GetFinalMeritValues(double *phi, double *dphi) const {
+void CubicLineSearch::GetFinalMeritValues(double* phi, double* dphi) const {
   *phi = phi_;
   *dphi = dphi_;
 }
@@ -66,23 +66,23 @@ double CubicLineSearch::Run(MeritFun merit_fun, double alpha0, double phi0, doub
   bool hit_max_alpha = false;
   double& phi = phi_;
   double& dphi = dphi_;
+
   if (verbose_)
     std::cout << "Starting Cubic Line Search with\n           "
-                 "phi0 = "
+                 " phi0 = "
               << phi0 << ", dphi0 = " << dphi0 << std::endl;
 
   for (int iter = 0; iter < this->max_iters; ++iter) {
     this->n_iters_ += 1;
-    // TODO: change this so that you get both at the same time with one function call?
     merit_fun(alpha, &phi, &dphi);
 
     bool sufficient_decrease_satisfied = phi <= phi0 + c1 * alpha * dphi0;
     bool function_not_decreasing = phi >= phi_prev;  // works because phi > phi_prev
     bool strong_wolfe_satisfied = fabs(dphi) <= -c2 * dphi0;
     if (verbose_)
-      std::cout << "  iter = " << iter << ": phi = " << phi << ", dphi =" << dphi << ". Armijo? "
-                << sufficient_decrease_satisfied << " Wolfe? " << strong_wolfe_satisfied
-                << std::endl;
+      std::cout << "  iter = " << iter << ": alpha = " << alpha << ", phi = " << phi
+                << ", dphi =" << dphi << ". Armijo? " << sufficient_decrease_satisfied << " Wolfe? "
+                << strong_wolfe_satisfied << std::endl;
 
     // Check convergence
     if (sufficient_decrease_satisfied && strong_wolfe_satisfied) {
@@ -102,7 +102,7 @@ double CubicLineSearch::Run(MeritFun merit_fun, double alpha0, double phi0, doub
         alpha_cubic = CubicSpline_ArgMin(&p, &cs_err);
         if (cs_err == CS_FOUND_MINIMUM && std::isfinite(alpha_cubic)) {
           if (verbose_) {
-            std::cout << "  Used cubic interpolation on initial interval (0, " << alpha
+            std::cout << "    Used cubic interpolation on initial interval (0, " << alpha
                       << ") and got alpha = " << alpha_cubic << std::endl;
           }
           cubic_spline_failed = false;
@@ -112,12 +112,14 @@ double CubicLineSearch::Run(MeritFun merit_fun, double alpha0, double phi0, doub
       if (!cubic_spline_failed) {
         this->n_iters_ += 1;
         double phi_cubic, dphi_cubic;
+        ++iter;
         merit_fun(alpha_cubic, &phi_cubic, &dphi_cubic);
         bool sufficient_decrease_satisfied_cubic = phi_cubic <= phi0 + c1 * alpha_cubic * dphi0;
         bool strong_wolfe_satisfied_cubic = fabs(dphi_cubic) <= -c2 * dphi0;
         if (verbose_)
-          std::cout << "  iter = " << iter << ": phi = " << phi_cubic << ", dphi =" << dphi_cubic
-                    << ". Armijo? " << sufficient_decrease_satisfied_cubic << " Wolfe? "
+          std::cout << "  iter = " << iter << ": alpha = " << alpha_cubic << ", phi = " << phi_cubic
+                    << ", dphi =" << dphi_cubic << ". Armijo? "
+                    << sufficient_decrease_satisfied_cubic << " Wolfe? "
                     << strong_wolfe_satisfied_cubic << std::endl;
 
         if (sufficient_decrease_satisfied_cubic && strong_wolfe_satisfied_cubic) {
@@ -132,6 +134,11 @@ double CubicLineSearch::Run(MeritFun merit_fun, double alpha0, double phi0, doub
       }
     }
 
+    // Optional: fall back to backtracking line search
+    if (this->use_backtracking_linesearch) {
+      return SimpleBacktracking(merit_fun, alpha0 * (this->beta_decrease));
+    }
+
     /*
      * Interval contains valid step lengths if either
      *   Case A. The current step violates the sufficient decrease requirement
@@ -144,9 +151,10 @@ double CubicLineSearch::Run(MeritFun merit_fun, double alpha0, double phi0, doub
     if (!sufficient_decrease_satisfied || (iter > 0 && function_not_decreasing)) {
       // call zoom with alo < ahi
       if (verbose_) {
-        std::cout << "  Zooming with alo < hi:\n";
-        std::cout << "    Not Sufficient decrease? " << !sufficient_decrease_satisfied << std::endl;
-        std::cout << "    Function not decreasing? " << (iter > 0 && function_not_decreasing)
+        std::cout << "    Zooming with alo < hi:\n";
+        std::cout << "      Not Sufficient decrease? " << !sufficient_decrease_satisfied
+                  << std::endl;
+        std::cout << "      Function not decreasing? " << (iter > 0 && function_not_decreasing)
                   << std::endl;
       }
       double alo = alpha_prev;
@@ -177,7 +185,7 @@ double CubicLineSearch::Run(MeritFun merit_fun, double alpha0, double phi0, doub
       this->dphi_hi_ = dphi_prev;
 
       if (verbose_) {
-        std::cout << "  Zooming with ahi < lo (" << ahi << ", " << alo << ")\n";
+        std::cout << "    Zooming with ahi < lo (" << ahi << ", " << alo << ")\n";
       }
       return Zoom(merit_fun, alo, ahi);
     }
@@ -198,7 +206,7 @@ double CubicLineSearch::Run(MeritFun merit_fun, double alpha0, double phi0, doub
       }
     }
     if (verbose_) {
-      std::cout << "  Expanding interval to alpha = " << alpha << std::endl;
+      std::cout << "    Expanding interval to alpha = " << alpha << std::endl;
     }
 
     phi_prev = phi;
@@ -249,7 +257,8 @@ double CubicLineSearch::Zoom(linesearch::MeritFun merit_fun, double alo, double 
     // Return if the interval gets too small
     if (fabs(alo - ahi) < this->min_interval_size) {
       if (verbose_)
-        std::cout << "  Window size too small with alo = " << alo << ", ahi = " << ahi << std::endl;
+        std::cout << "    Window size too small with alo = " << alo << ", ahi = " << ahi
+                  << std::endl;
       alpha = (alo + ahi) / 2.0;  // check at the midpoint
 
       this->n_iters_ += 1;
@@ -280,7 +289,7 @@ double CubicLineSearch::Zoom(linesearch::MeritFun merit_fun, double alo, double 
       alpha = CubicSpline_ArgMin(&p, &cs_err);
       if (cs_err == CS_FOUND_MINIMUM && std::isfinite(alpha)) {
         if (verbose_) {
-          std::cout << "  Used cubic interpolation on interval (" << a_min << ", " << a_max
+          std::cout << "    Used cubic interpolation on interval (" << a_min << ", " << a_max
                     << ") and got alpha = " << alpha << std::endl;
         }
         cubic_spline_failed = false;
@@ -289,7 +298,7 @@ double CubicLineSearch::Zoom(linesearch::MeritFun merit_fun, double alo, double 
 
     // If cubic interpolation fails, try the midpoint
     if (cubic_spline_failed) {
-      if (verbose_) std::cout << "  Cubic Interpolation failed. Using midpoint.\n";
+      if (verbose_) std::cout << "    Cubic Interpolation failed. Using midpoint.\n";
       alpha = (alo + ahi) / 2;
     }
 
@@ -299,9 +308,9 @@ double CubicLineSearch::Zoom(linesearch::MeritFun merit_fun, double alo, double 
     bool higher_than_lo = phi > phi_lo;
     bool curvature = fabs(dphi) <= -c2 * dphi0;
     if (verbose_)
-      std::cout << "  zoom iter = " << zoom_iter << ": phi = " << phi << ", dphi =" << dphi << ". Armijo? "
-                << sufficient_decrease << " Wolfe? " << curvature
-                << std::endl;
+      std::cout << "  zoom iter = " << zoom_iter << ": alpha = " << alpha << ", phi = " << phi
+                << ", dphi =" << dphi << ". Armijo? " << sufficient_decrease << " Wolfe? "
+                << curvature << std::endl;
 
     if (sufficient_decrease && curvature) {
       if (verbose_) std::cout << "  Optimal Step Found!\n";
@@ -312,7 +321,7 @@ double CubicLineSearch::Zoom(linesearch::MeritFun merit_fun, double alo, double 
     }
     if (!sufficient_decrease || higher_than_lo) {
       // Adjusting ahi
-      if (verbose_) std::cout << "  Adjusting ahi\n";
+      if (verbose_) std::cout << "    Adjusting ahi\n";
       ahi = alpha;
       phi_hi = phi;
       dphi_hi = dphi;
@@ -329,9 +338,9 @@ double CubicLineSearch::Zoom(linesearch::MeritFun merit_fun, double alo, double 
         ahi = alo;
         phi_hi = phi_lo;
         dphi_hi = dphi_lo;
-        if (verbose_) std::cout << "  Setting ahi = alo. ";
+        if (verbose_) std::cout << "    Setting ahi = alo. ";
       }
-      if (verbose_) std::cout << "  Adjusting alo\n";
+      if (verbose_) std::cout << "    Adjusting alo\n";
       alo = alpha;
       phi_lo = phi;
       dphi_lo = dphi;
@@ -373,5 +382,33 @@ const char* CubicLineSearch::StatusToString() {
   };
 }
 
+double CubicLineSearch::SimpleBacktracking(MeritFun merit_fun, double alpha0) {
+  double alpha = alpha0;
+  double c1 = this->c1_;
+  double& phi = phi_;
+
+  double phi0 = this->phi0_;
+  double dphi0 = this->dphi0_;
+
+  for (int iter = 1; iter < this->max_iters; ++iter) {
+    this->n_iters_ += 1;
+    merit_fun(alpha, &phi, nullptr);
+
+    bool sufficient_decrease_satisfied = phi <= phi0 + c1 * alpha * dphi0;
+
+    // Check convergence
+    if (sufficient_decrease_satisfied) {
+      if (verbose_) std::cout << "  Optimal Step Found!\n";
+      this->sufficient_decrease_ = true;
+      this->curvature_ = true;
+      this->return_code_ = ReturnCodes::MINIMUM_FOUND;
+      return alpha;
+      return 0;
+    } else {
+      alpha *= this->beta_decrease;
+    }
+  }
+  return alpha;
+}
 
 }  // namespace linesearch
