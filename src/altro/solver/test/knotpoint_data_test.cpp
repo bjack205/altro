@@ -262,7 +262,7 @@ TEST_F(KnotPointConstraintTest, Inequality) {
   EXPECT_NEAR(alcost, z_tilde.squaredNorm() / (2 * rho), 1e-10);
 
   // Calc Constraint Jacobians
-  data.CalcConstraintExpansions();
+  data.CalcConstraintJacobians();
   EXPECT_LT((data.constraint_jac_[0] - J_expected).norm(), 1e-6);
 
   // Calc AL Cost Gradient
@@ -316,7 +316,7 @@ TEST_F(KnotPointConstraintTest, Equality) {
   EXPECT_NEAR(alcost, z_tilde.squaredNorm() / (2 * rho), 1e-10);
 
   // Calc Constraint Jacobians
-  data.CalcConstraintExpansions();
+  data.CalcConstraintJacobians();
   EXPECT_LT((data.constraint_jac_[0] - J_expected).norm(), 1e-6);
 
   // Calc AL Cost Gradient
@@ -375,7 +375,7 @@ TEST_F(KnotPointConstraintTest, SecondOrderCone_OutofCone) {
   EXPECT_NEAR(alcost, alcost_expected, 1e-10);
 
   // Calc Constraint Jacobians
-  data.CalcConstraintExpansions();
+  data.CalcConstraintJacobians();
   EXPECT_LT((data.constraint_jac_[0] - J_expected).norm(), 1e-6);
 
   // Calc AL Cost Gradient
@@ -437,7 +437,7 @@ TEST_F(KnotPointConstraintTest, SecondOrderCone_BelowCone) {
   EXPECT_NEAR(alcost, alcost_expected, 1e-10);
 
   // Calc Constraint Jacobians
-  data.CalcConstraintExpansions();
+  data.CalcConstraintJacobians();
   EXPECT_LT((data.constraint_jac_[0] - J_expected).norm(), 1e-6);
 
   // Calc AL Cost Gradient
@@ -496,7 +496,7 @@ TEST_F(KnotPointConstraintTest, SecondOrderCone_InCone) {
   EXPECT_NEAR(alcost, alcost_expected, 1e-10);
 
   // Calc Constraint Jacobians
-  data.CalcConstraintExpansions();
+  data.CalcConstraintJacobians();
   EXPECT_LT((data.constraint_jac_[0] - J_expected).norm(), 1e-6);
 
   // Calc AL Cost Gradient

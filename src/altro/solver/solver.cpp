@@ -156,24 +156,40 @@ void SolverImpl::SetCppSolverOptions() {
   }
 }
 
-a_float SolverImpl::CalcCost() {
-  a_float cost = 0.0;
-  for (int k = 0; k <= horizon_length_; ++k) {
-    cost += data_[k].CalcCost();
-  }
-  return cost;
-  //  return alsolver_.GetiLQRSolver().Cost();
-}
-
+/////////////////////////////////////////////
+// Rollouts
+/////////////////////////////////////////////
 ErrorCodes SolverImpl::OpenLoopRollout() {
   if (!IsInitialized()) return ErrorCodes::SolverNotInitialized;
   data_[0].x_ = initial_state_;
   for (int k = 0; k < horizon_length_; ++k) {
     data_[k].CalcDynamics(data_[k + 1].x_.data());
   }
+  constraint_vals_up_to_date_ = false;
+  constraint_jacs_up_to_date_ = false;
+  projected_duals_up_to_date_ = false;
+  conic_jacs_up_to_date_ = false;
+  conic_hessians_up_to_date_ = false;
+  cost_gradients_up_to_date_ = false;
+  cost_hessians_up_to_date_ = false;
+  dynamics_jacs_up_to_date_ = false;
   return ErrorCodes::NoError;
 }
 
+ErrorCodes SolverImpl::LinearRollout() {
+  tvlqr_ForwardPass(nx_.data(), nu_.data(), horizon_length_, A_.data(), B_.data(), f_.data(),
+                    K_.data(), d_.data(), P_.data(), p_.data(), initial_state_.data(), x_.data(),
+                    u_.data(), y_.data());
+  constraint_vals_up_to_date_ = false;
+  constraint_jacs_up_to_date_ = false;
+  projected_duals_up_to_date_ = false;
+  conic_jacs_up_to_date_ = false;
+  conic_hessians_up_to_date_ = false;
+  cost_gradients_up_to_date_ = false;
+  cost_hessians_up_to_date_ = false;
+  dynamics_jacs_up_to_date_ = false;
+  return ErrorCodes::NoError;
+}
 
 ErrorCodes SolverImpl::CopyTrajectory() {
   for (int k = 0; k <= horizon_length_; ++k) {
@@ -186,35 +202,76 @@ ErrorCodes SolverImpl::CopyTrajectory() {
   return ErrorCodes::NoError;
 }
 
-ErrorCodes SolverImpl::CalcExpansions() {
-  // TODO: do this in parallel
+/////////////////////////////////////////////
+// Cost Methods
+/////////////////////////////////////////////
+
+a_float SolverImpl::CalcCost() {
+  a_float cost = 0.0;
+  if (constraint_vals_up_to_date_) fmt::print("    Constraints already up-to-date (CalcCost)\n");
+  if (projected_duals_up_to_date_) fmt::print("    Constraints already up-to-date (CalcCost)\n");
   for (int k = 0; k <= horizon_length_; ++k) {
-    KnotPointData& kp = data_[k];
-    kp.CalcDynamicsExpansion();
-    kp.CalcCostExpansion(true);
+    data_[k].CalcConstraints();
+    cost += data_[k].CalcCost();
   }
-  return ErrorCodes::NoError;
+  constraint_vals_up_to_date_ = true;
+  projected_duals_up_to_date_ = true;
+  return cost;
+  //  return alsolver_.GetiLQRSolver().Cost();
 }
 
 ErrorCodes SolverImpl::CalcCostGradient() {
-  for (auto z = data_.begin(); z < data_.end(); ++z) {
-    z->CalcCostExpansion(true);
+  if (cost_gradients_up_to_date_) fmt::print("    Cost grads already up-to-date (CostGradient)\n");
+  if (constraint_jacs_up_to_date_) fmt::print("    Con Jacs already up-to-date (CostGradient)\n");
+  if (conic_jacs_up_to_date_) fmt::print("    Conic Jacs already up-to-date (CostGradient)\n");
+  for (auto knot_point = data_.begin(); knot_point < data_.end(); ++knot_point) {
+    knot_point->CalcCostGradient();
   }
+  cost_gradients_up_to_date_ = true;
+  constraint_jacs_up_to_date_ = true;
+  conic_jacs_up_to_date_ = true;
   return ErrorCodes::NoError;
 }
 
-ErrorCodes SolverImpl::LinearRollout() {
-  tvlqr_ForwardPass(nx_.data(), nu_.data(), horizon_length_, A_.data(), B_.data(), f_.data(),
-                    K_.data(), d_.data(), P_.data(), p_.data(), initial_state_.data(), x_.data(),
-                    u_.data(), y_.data());
+ErrorCodes SolverImpl::CalcExpansions() {
+  // TODO: do this in parallel
+  // TODO: don't calculate anything that depends on the initial state?
+//  if (constraint_vals_up_to_date_) fmt::print("    Constraints already up-to-date (CalcAll)\n");
+//  if (projected_duals_up_to_date_) fmt::print("    Proj Duals already up-to-date (CalcAll)\n");
+//  if (dynamics_jacs_up_to_date_) fmt::print("    Dynamics Jacs already up-to-date (CalcAll)\n");
+//  if (constraint_jacs_up_to_date_) fmt::print("    Con Jacs already up-to-date (CalcAll)\n");
+//  if (conic_jacs_up_to_date_) fmt::print("    Conic Jacs already up-to-date (CalcAll)\n");
+  if (conic_hessians_up_to_date_) fmt::print("    Conic hessians already up-to-date (CalcAll)\n");
+//  if (cost_gradients_up_to_date_) fmt::print("    Cost grads already up-to-date (CalcAll)\n");
+  if (cost_hessians_up_to_date_) fmt::print("    Cost hessians already up-to-date (CalcAll)\n");
+  for (int k = 0; k <= horizon_length_; ++k) {
+    KnotPointData& knot_point = data_[k];
+//    knot_point.CalcConstraints();
+//    knot_point.CalcProjectedDuals();
+//    knot_point.CalcDynamicsExpansion();
+//    knot_point.CalcConstraintJacobians();
+    knot_point.CalcCostHessian();
+//    knot_point.CalcCostExpansion(true);  // updates constraint Jacobians, conic Jacobian and Hessian
+  }
+//  constraint_vals_up_to_date_ = true;
+//  projected_duals_up_to_date_ = true;
+//  dynamics_jacs_up_to_date_ = true;
+//  constraint_jacs_up_to_date_ = true;
+//  conic_jacs_up_to_date_ = true;
+  conic_hessians_up_to_date_ = true;
+//  cost_gradients_up_to_date_ = true;
+  cost_hessians_up_to_date_ = true;
   return ErrorCodes::NoError;
 }
+
+/////////////////////////////////////////////
+// Optimality Criteria
+/////////////////////////////////////////////
 
 a_float SolverImpl::Stationarity() {
   int N = horizon_length_;
   a_float res_x = 0;
   a_float res_u = 0;
-  CalcExpansions();  // TODO: avoid this call
 
   for (int k = 0; k < N; ++k) {
     KnotPointData& z = data_[k];
@@ -228,6 +285,21 @@ a_float SolverImpl::Stationarity() {
   return std::max(res_x, res_u);
 }
 
+a_float SolverImpl::Feasibility() {
+  a_float viol = 0;
+//  if (constraint_vals_up_to_date_) fmt::print("     Constraints already up-to-date (Feas)\n");
+  for (int k = 0; k <= horizon_length_; ++k) {
+    KnotPointData& kp = data_[k];
+//    kp.CalcConstraints();  // TODO: can we avoid this call?
+    viol = std::max(viol, kp.CalcViolations());
+  }
+//  constraint_vals_up_to_date_ = true;
+  return viol;
+}
+
+/////////////////////////////////////////////
+// Forward Pass
+/////////////////////////////////////////////
 
 ErrorCodes SolverImpl::ForwardPass(a_float* alpha) {
   auto phi = [this](double alpha, double* phi, double* dphi) {
@@ -245,9 +317,11 @@ ErrorCodes SolverImpl::ForwardPass(a_float* alpha) {
   ls_.GetFinalMeritValues(&phi_, &dphi_);
   auto res = ls_.GetStatus();
   ls_iters_ = ls_.Iterations();
-  if (std::isnan(*alpha) || !(res == linesearch::CubicLineSearch::ReturnCodes::MINIMUM_FOUND || res == linesearch::CubicLineSearch::ReturnCodes::HIT_MAX_STEPSIZE)) {
+  if (std::isnan(*alpha) || !(res == linesearch::CubicLineSearch::ReturnCodes::MINIMUM_FOUND ||
+                              res == linesearch::CubicLineSearch::ReturnCodes::HIT_MAX_STEPSIZE)) {
     // TODO: Provide a more fine-grained return code
-    return ALTRO_THROW(fmt::format("Line search failed with code {}", (int)(res)), ErrorCodes::LineSearchFailed);
+    return ALTRO_THROW(fmt::format("Line search failed with code {}", (int)(res)),
+                       ErrorCodes::LineSearchFailed);
   }
   return ErrorCodes::NoError;
 }
@@ -266,49 +340,81 @@ ErrorCodes SolverImpl::MeritFunction(a_float alpha, a_float* phi, a_float* dphi)
   // Simulate forward to calculate the cost
   for (int k = 0; k < N; ++k) {
     // Compute the control
-    KnotPointData& z = data_[k];
-    KnotPointData& zn = data_[k + 1];
-    Vector dx = z.x_ - z.x;  // TODO: avoid these temporary arrays
-    Vector du = -z.K_ * dx + alpha * z.d_;
-    z.u_ = z.u + du;
-    z.y_ = z.P_ * dx + z.p_;
+    KnotPointData& knot_point = data_[k];
+    KnotPointData& next_knot_point = data_[k + 1];
+
+    Vector dx = knot_point.x_ - knot_point.x;  // TODO: avoid these temporary arrays
+    Vector du = -knot_point.K_ * dx + alpha * knot_point.d_;
+    knot_point.u_ = knot_point.u + du;
+    knot_point.y_ = knot_point.P_ * dx + knot_point.p_;
 
     // Simulate the system forward
-    z.CalcDynamics(zn.x_.data());
+    knot_point.CalcDynamics(next_knot_point.x_.data());  // invalidates all the knot_point
 
     // Calculate the cost
-    double cost = z.CalcCost();
+    knot_point.CalcConstraints();
+    double cost = knot_point.CalcCost();  // updates constraints and projected duals
     phi_ += cost;
 
     if (calc_derivative) {
       // Calculate gradient of x and u with respect to alpha
-      z.CalcDynamicsExpansion();
-      z.du_da_ = -z.K_ * z.dx_da_ + z.d_;
-      zn.dx_da_ = z.A_ * z.dx_da_ + z.B_ * z.du_da_;
+      knot_point.CalcDynamicsExpansion();
+      knot_point.du_da_ = -knot_point.K_ * knot_point.dx_da_ + knot_point.d_;
+      next_knot_point.dx_da_ = knot_point.A_ * knot_point.dx_da_ + knot_point.B_ * knot_point.du_da_;
 
       // Calculate the gradient of the cost with respect to alpha
-      z.CalcCostGradient();
-      dphi_ += z.lx_.dot(z.dx_da_);
-      dphi_ += z.lu_.dot(z.du_da_);
+      knot_point.CalcConstraintJacobians();
+      knot_point.CalcCostGradient();
+      dphi_ += knot_point.lx_.dot(knot_point.dx_da_);
+      dphi_ += knot_point.lu_.dot(knot_point.du_da_);
     }
   }
 
   // Terminal knot point
-  KnotPointData& z = data_[N];
-  double cost = z.CalcCost();
+  KnotPointData& knot_point = data_[N];
+  knot_point.CalcConstraints();
+  double cost = knot_point.CalcCost();
   phi_ += cost;
-  Vector dx = z.x_ - z.x;
-  z.y_ = z.P_ * dx + z.p_;
+  Vector dx = knot_point.x_ - knot_point.x;
+  knot_point.y_ = knot_point.P_ * dx + knot_point.p_;
   *phi = phi_;
 
   if (calc_derivative) {
-    z.CalcCostGradient();
-    dphi_ += z.lx_.dot(z.dx_da_);
+    knot_point.CalcConstraintJacobians();
+    knot_point.CalcCostGradient();
+    dphi_ += knot_point.lx_.dot(knot_point.dx_da_);
     *dphi = dphi_;
+  }
+
+  // Changing the trajectory invalidates everything
+  constraint_vals_up_to_date_ = false;
+  constraint_jacs_up_to_date_ = false;
+  projected_duals_up_to_date_ = false;
+  conic_jacs_up_to_date_ = false;
+  conic_hessians_up_to_date_ = false;
+  cost_gradients_up_to_date_ = false;
+  cost_hessians_up_to_date_ = false;
+  dynamics_jacs_up_to_date_ = false;
+
+  // Set the data that was updated
+  constraint_vals_up_to_date_ = true;
+  projected_duals_up_to_date_ = true;
+
+  if (calc_derivative) {
+    dynamics_jacs_up_to_date_ = true;
+    cost_gradients_up_to_date_ = true;
+    constraint_jacs_up_to_date_ = true;
+    conic_jacs_up_to_date_ = true;
+//    fmt::print("      alpha = {}, phi = {}, dphi = {}\n", alpha, *phi, *dphi);
+  } else {
+//    fmt::print("      alpha = {}, phi = {}\n", alpha, *phi);
   }
   return ErrorCodes::NoError;
 }
 
+/////////////////////////////////////////////
+// Backward Pass
+/////////////////////////////////////////////
 ErrorCodes SolverImpl::BackwardPass() {
   int N = horizon_length_;
 
@@ -321,6 +427,7 @@ ErrorCodes SolverImpl::BackwardPass() {
                                Quu_.data(), Qux_.data(), Qx_.data(), Qu_.data(), Qxx_tmp_.data(),
                                Quu_tmp_.data(), Qux_tmp_.data(), Qx_tmp_.data(), Qu_tmp_.data(),
                                linear_only_update, is_diag);
+  // NOTE: this invalidates only the merit function derivative
   if (res != TVLQR_SUCCESS) {
     return ErrorCodes::BackwardPassFailed;
   } else {
@@ -328,30 +435,63 @@ ErrorCodes SolverImpl::BackwardPass() {
   }
 }
 
+/////////////////////////////////////////////
+// Outer Loop (AL) Updates
+/////////////////////////////////////////////
 ErrorCodes SolverImpl::DualUpdate() {
+//  if (projected_duals_up_to_date_) fmt::print("    Projected duals already up-to-date (DualUp)\n");
+  if (!constraint_vals_up_to_date_) fmt::print("    Constraint vals out-of-date (DualUp)\n");
+  // Assumes constraint are already up-to-date
   if (!IsInitialized()) return ErrorCodes::SolverNotInitialized;
   for (int k = 0; k <= horizon_length_; ++k) {
     data_[k].DualUpdate();
   }
+  projected_duals_up_to_date_ = false;
+  conic_jacs_up_to_date_ = false;
+  conic_hessians_up_to_date_ = false;
+  cost_gradients_up_to_date_ = false;
+  cost_hessians_up_to_date_ = false;
   return ErrorCodes::NoError;
 }
 
 ErrorCodes SolverImpl::PenaltyUpdate() {
   if (!IsInitialized()) return ErrorCodes::SolverAlreadyInitialized;
   for (int k = 0; k <= horizon_length_; ++k) {
-    data_[k].PenaltyUpdate(opts.penalty_scaling);
+    data_[k].PenaltyUpdate(opts.penalty_scaling, opts.penalty_max);
+//    data_[k].CalcProjectedDuals();
+//    data_[k].CalcProjectedDuals();
   }
+  rho_ = std::min(rho_ * opts.penalty_scaling, opts.penalty_max);
+  projected_duals_up_to_date_ = false;
+  conic_jacs_up_to_date_ = false;
+  conic_hessians_up_to_date_ = false;
+  cost_gradients_up_to_date_ = false;
+  cost_hessians_up_to_date_ = false;
   return ErrorCodes::NoError;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Solve
+////////////////////////////////////////////////////////////////////////////////////////////////////
 ErrorCodes SolverImpl::Solve() {
   // TODO: Copy options to line search
   ErrorCodes err;
+  rho_ = opts.penalty_initial;
 
   // Initial rollout
   // TODO: make this a TVLQR rollout with affine terms enabled
   OpenLoopRollout();
   CopyTrajectory();  // make the rolled out trajectory the reference trajectory
+  for (int k = 0; k <= horizon_length_; ++k) {
+    data_[k].CalcDynamicsExpansion();
+    data_[k].CalcConstraintJacobians();
+    data_[k].CalcCostGradient();
+    data_[k].SetPenalty(opts.penalty_initial);
+  }
+  dynamics_jacs_up_to_date_ = true;
+  constraint_jacs_up_to_date_ = true;
+  conic_jacs_up_to_date_ = true;
+  cost_gradients_up_to_date_ = true;
 
   // Start the iterations
   double alpha;
@@ -367,28 +507,52 @@ ErrorCodes SolverImpl::Solve() {
     CalcExpansions();
     BackwardPass();
     err = ForwardPass(&alpha);
-    if (err != ErrorCodes::NoError) {
+    if (!(err == ErrorCodes::NoError || err == ErrorCodes::MeritFunctionGradientTooSmall)) {
       PrintErrorCode(err);
-//      stop_iterating = true;
+      stop_iterating = true;
     }
-    CopyTrajectory();
-    a_float stationarity = Stationarity();
 
-    // Use stationarity as the termination criteria
+    // Calculate convergence criteria
+    // TODO: Add complimentarity?
+    // TODO: Add full nonlinear stationarity?
+    a_float stationarity = Stationarity();
+    a_float feasibility = Feasibility();
+    CopyTrajectory();
+
     a_float cost_decrease = phi0_ - phi_;
-    if (std::abs(stationarity) < opts.tol_stationarity) {
+    if (std::abs(stationarity) < opts.tol_stationarity &&
+        feasibility < opts.tol_primal_feasibility) {
       is_converged = true;
       stop_iterating = true;
       stats.status = SolveStatus::Success;
     }
-    if (!is_converged && err == ErrorCodes::MeritFunctionGradientTooSmall) {
-      stats.status = SolveStatus::MeritFunGradientTooSmall;
-      stop_iterating = true;
+
+    // Check if the duals should be updated
+    bool dual_update = false;
+    a_float penalty = rho_;  // cache this because it can get updated between here and printing
+    if (stationarity < std::sqrt(opts.tol_stationarity)) {
+      DualUpdate();
+
+      if (feasibility > opts.tol_primal_feasibility) {
+        PenaltyUpdate();  // TODO: Maybe do this if the dual update didn't improve the feasibility?
+      }
+
+      // Update the projected duals given the updated duals, penalty
+      // NOTE: uses constraint values cached during the forward pass
+      for (int k = 0; k <= horizon_length_; ++k) {
+        data_[k].CalcProjectedDuals();
+        data_[k].CalcCostGradient();
+      }
+      projected_duals_up_to_date_ = true;
+      dual_update = true;
     }
 
     // Print log
-    fmt::print("  iter = {:3d}, phi = {:8.4g} -> {:8.4g} ({:10.3g}), dphi = {:8.4g} -> {:8.4g}, alpha = {:8.3g}, ls_iter = {:2d}, stationarity = {:6.4e}\n",
-               iter, phi0_, phi_, cost_decrease, dphi0_, dphi_, alpha, ls_iters_, stationarity);
+    fmt::print(
+        "  iter = {:3d}, phi = {:8.4g} -> {:8.4g} ({:10.3g}), dphi = {:10.3g} -> {:10.3g}, alpha = "
+        "{:8.3g}, ls_iter = {:2d}, stat = {:8.3e}, feas = {:8.3e}, rho = {:7.2g}, dual update? {}\n",
+        iter, phi0_, phi_, cost_decrease, dphi0_, dphi_, alpha, ls_iters_, stationarity,
+        feasibility, penalty, dual_update);
 
     if (stop_iterating) break;
   }

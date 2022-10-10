@@ -74,7 +74,7 @@ void pendulum_jacobian(double *jac, const double *x, const double *u) {
 }
 altro::ExplicitDynamicsFunction MidpointDynamics(int n, int m, ContinuousDynamicsFunction f) {
   auto fd = [n,m,f](double* xn, const double* x, const double* u, float h) {
-    static Eigen::VectorXd xm(n);
+    Eigen::VectorXd xm(n);
     Eigen::Map<Eigen::VectorXd> xn_vec(xn, n);
     Eigen::Map<const Eigen::VectorXd> x_vec(x, n);
     Eigen::Map<const Eigen::VectorXd> u_vec(u, n);
@@ -89,12 +89,12 @@ altro::ExplicitDynamicsFunction MidpointDynamics(int n, int m, ContinuousDynamic
 
 altro::ExplicitDynamicsJacobian MidpointJacobian(int n, int m, ContinuousDynamicsFunction f, ContinuousDynamicsJacobian df) {
   auto fd = [n,m,f,df](double* jac, const double *x, const double *u, float h) {
-    static Eigen::MatrixXd A(n, n);
-    static Eigen::MatrixXd B(n, m);
-    static Eigen::MatrixXd Am(n, n);
-    static Eigen::MatrixXd Bm(n, m);
-    static Eigen::VectorXd xm(n);
-    static Eigen::MatrixXd In = Eigen::MatrixXd::Identity(n, n);
+    Eigen::MatrixXd A(n, n);
+    Eigen::MatrixXd B(n, m);
+    Eigen::MatrixXd Am(n, n);
+    Eigen::MatrixXd Bm(n, m);
+    Eigen::VectorXd xm(n);
+    Eigen::MatrixXd In = Eigen::MatrixXd::Identity(n, n);
 
     Eigen::Map<Eigen::MatrixXd> J(jac, n, n + m);
     Eigen::Map<const Eigen::VectorXd> x_vec(x, n);

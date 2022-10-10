@@ -27,7 +27,7 @@ class SolverImpl {
 
   ErrorCodes Initialize();
   a_float CalcCost();
-  a_float CalcObjective();
+//  a_float CalcObjective();
   ErrorCodes OpenLoopRollout();
   ErrorCodes Solve();
 
@@ -40,6 +40,13 @@ class SolverImpl {
 
   ErrorCodes LinearRollout();
   a_float Stationarity();
+  a_float Feasibility();
+
+  ErrorCodes CalcConstraints();
+  ErrorCodes CalcConstraintJacobians();
+  ErrorCodes CalcProjectedDuals();
+  ErrorCodes CalcConicJacobians();
+  ErrorCodes CalcConicHessians();
   ErrorCodes CalcCostGradient();
   ErrorCodes CalcExpansions();
 
@@ -70,11 +77,21 @@ class SolverImpl {
   a_float dphi0_;
   a_float phi_;
   a_float dphi_;
+  a_float rho_;
   int ls_iters_;
 
 
  private:
   void SetCppSolverOptions();
+
+  bool constraint_vals_up_to_date_ = false;
+  bool constraint_jacs_up_to_date_ = false;
+  bool projected_duals_up_to_date_ = false;
+  bool conic_jacs_up_to_date_ = false;
+  bool conic_hessians_up_to_date_ = false;
+  bool cost_gradients_up_to_date_ = false;
+  bool cost_hessians_up_to_date_ = false;
+  bool dynamics_jacs_up_to_date_ = false;
 
   // TVLQR data arrays
   //   Note data is actually stored in data_, these are just pointers to that data to call tvlqr

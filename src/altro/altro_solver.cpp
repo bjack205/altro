@@ -169,8 +169,16 @@ ErrorCodes ALTROSolver::SetLQRCost(int num_states, int num_inputs, const a_float
   for (int k = k_start; k < k_stop; ++k) {
     int n = this->GetStateDim(k);
     int m = this->GetInputDim(k);
-    if (n != num_states) return ErrorCodes::DimensionMismatch;
-    if (k != GetHorizonLength() && m != num_inputs) return ErrorCodes::DimensionMismatch;
+    if (n != num_states) {
+      return ALTRO_THROW(fmt::format("State dimension mismatch at index {}. Expected {}, got {}", k,
+                                     n, num_states),
+                         ErrorCodes::DimensionMismatch);
+    }
+    if (k != GetHorizonLength() && m != num_inputs) {
+      return ALTRO_THROW(fmt::format("Input dimension mismatch at index {}. Expected {}, got {}", k,
+                                     m, num_inputs),
+                         ErrorCodes::DimensionMismatch);
+    }
     Eigen::Map<const Vector> Qd(Q_diag, n);
     Eigen::Map<const Vector> Rd(R_diag, m);
     Eigen::Map<const Vector> xref(x_ref, n);
@@ -226,8 +234,8 @@ ErrorCodes ALTROSolver::SetConstraint(ConstraintFunction constraint_function,
   if (con_inds) con_inds->reserve(num_indices);
 
   for (int k = k_start; k < k_stop; ++k) {
-//    int n = GetStateDim(k);
-//    int m = GetInputDim(k);
+    //    int n = GetStateDim(k);
+    //    int m = GetInputDim(k);
     std::string label_k = label;
     if (num_indices != 1) {
       label_k += "_" + std::to_string(k);
@@ -235,8 +243,8 @@ ErrorCodes ALTROSolver::SetConstraint(ConstraintFunction constraint_function,
 
     // Add constraint to knot point
     int ncon = solver_->data_[k].NumConstraints();
-    solver_->data_[k].SetConstraint(constraint_function, constraint_jacobian, dim, constraint_type,
-                                    label);
+    solver_->data_[k].SetConstraint(std::move(constraint_function), std::move(constraint_jacobian),
+                                    dim, constraint_type, label);
 
     // AltroCpp Interface
     //    if (constraint_type == ConstraintType::EQUALITY) {
@@ -335,7 +343,9 @@ ErrorCodes ALTROSolver::GetState(a_float *x, int k) const {
   int k_stop = k + 1;
   ErrorCodes err = CheckKnotPointIndices(k, k_stop, LastIndexMode::Inclusive);
   err = AssertDimensionsAreSet(k, k_stop);
-  if (err != ErrorCodes::NoError) return err;
+  if (err != ErrorCodes::NoError) {
+    return ALTRO_THROW(fmt::format("Error in GetState with k = {}", k), err);
+  }
 
   int n = GetStateDim(k);
   Eigen::Map<Eigen::VectorXd>(x, n) = solver_->data_[k].x;
@@ -347,7 +357,9 @@ ErrorCodes ALTROSolver::GetInput(a_float *u, int k) const {
   int k_stop = k + 1;
   ErrorCodes err = CheckKnotPointIndices(k, k_stop, LastIndexMode::Exclusive);
   err = AssertDimensionsAreSet(k, k_stop);
-  if (err != ErrorCodes::NoError) return err;
+  if (err != ErrorCodes::NoError) {
+    return ALTRO_THROW(fmt::format("Error in GetInput with k = {}", k), err);
+  }
 
   int m = GetInputDim(k);
   Eigen::Map<Eigen::VectorXd>(u, m) = solver_->data_[k].u;
@@ -357,9 +369,11 @@ ErrorCodes ALTROSolver::GetInput(a_float *u, int k) const {
 
 ErrorCodes ALTROSolver::GetDualDynamics(a_float *y, int k) const {
   int k_stop = k + 1;
-  ErrorCodes err = CheckKnotPointIndices(k, k_stop, LastIndexMode::Exclusive);
+  ErrorCodes err = CheckKnotPointIndices(k, k_stop, LastIndexMode::Inclusive);
   err = AssertDimensionsAreSet(k, k_stop);
-  if (err != ErrorCodes::NoError) return err;
+  if (err != ErrorCodes::NoError) {
+    return ALTRO_THROW(fmt::format("Error in GetDualDynamics with k = {}", k), err);
+  }
 
   int n = GetStateDim(k);
   Eigen::Map<Eigen::VectorXd>(y, n) = solver_->data_[k].y;

@@ -60,16 +60,22 @@ class KnotPointData {
   // Calculation methods
   a_float CalcCost();
   ErrorCodes CalcCostGradient();
+  ErrorCodes CalcCostHessian();
   ErrorCodes CalcCostExpansion(bool force_update);
   ErrorCodes CalcDynamics(a_float *xnext);
   ErrorCodes CalcDynamicsExpansion();
   ErrorCodes CalcConstraints();
-  ErrorCodes CalcConstraintExpansions();
+  ErrorCodes CalcConstraintJacobians();
+  ErrorCodes CalcProjectedDuals();
+  ErrorCodes CalcConicJacobians();
+  ErrorCodes CalcConicHessians();
+
   a_float CalcConstraintCosts();
   ErrorCodes CalcConstraintCostGradients();
   ErrorCodes CalcConstraintCostHessians();
   ErrorCodes DualUpdate();
-  void PenaltyUpdate(a_float scaling);
+  a_float CalcViolations();
+  void PenaltyUpdate(a_float scaling, a_float penalty_max);
 //  ErrorCodes CalcActionValueExpansion(const KnotPointData &next);
 //  ErrorCodes CalcGains();
 //  ErrorCodes CalcCostToGo();
@@ -182,7 +188,8 @@ class KnotPointData {
 
   std::vector<Vector> constraint_val_;
   std::vector<Matrix> constraint_jac_;
-  std::vector<Matrix> constraint_hess_;  // Constraint Hessian (Guass-Newton approximation)
+  std::vector<Matrix> constraint_hess_;  // Constraint Hessian (Gauss-Newton approximation)
+  std::vector<Vector> v_;                // constraint violations
   std::vector<Vector> z_;                // constraint dual
   std::vector<Vector> z_est_;            // estimated dual (z - rho * c)
   std::vector<Vector> z_proj_;           // projected estimated dual

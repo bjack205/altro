@@ -279,6 +279,7 @@ ErrorCodes KnotPointData::Initialize() {
   constraint_val_.reserve(num_constraints);
   constraint_jac_.reserve(num_constraints);
   constraint_hess_.reserve(num_constraints);
+  v_.reserve(num_constraints);
   z_.reserve(num_constraints);
   z_est_.reserve(num_constraints);
   z_proj_.reserve(num_constraints);
@@ -292,6 +293,7 @@ ErrorCodes KnotPointData::Initialize() {
     constraint_val_.emplace_back(Vector::Zero(p));
     constraint_jac_.emplace_back(Matrix::Zero(p, n + m));
     constraint_hess_.emplace_back(Matrix::Zero(n + m, n + m));
+    v_.emplace_back(Vector::Zero(p));
     z_.emplace_back(Vector::Zero(p));
     z_est_.emplace_back(Vector::Zero(p));
     z_proj_.emplace_back(Vector::Zero(p));
@@ -362,11 +364,27 @@ ErrorCodes KnotPointData::Initialize() {
 // Computational Methods
 /////////////////////////////////////////////
 
+ErrorCodes KnotPointData::CalcDynamicsExpansion() {
+  if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOpAtTeriminalKnotPoint;
+  if (!DynamicsAreLinear()) {
+    int n = GetStateDim();
+    int m = GetInputDim();
+    float h = GetTimeStep();
+    dynamics_jacobian_(dynamics_jac_.data(), x_.data(), u_.data(), h);
+    A_ = dynamics_jac_.leftCols(n);
+    B_ = dynamics_jac_.rightCols(m);
+  } else {
+    f_.setZero();
+  }
+  return ErrorCodes::NoError;
+}
+
+
 a_float KnotPointData::CalcCost() {
   a_float cost = CalcOriginalCost();
 
   // Add constraint terms from Augmented Lagrangian
-  CalcConstraints();
+//  CalcConstraints();
   a_float al_cost =  CalcConstraintCosts();
   return cost + al_cost;
 }
@@ -375,8 +393,18 @@ ErrorCodes KnotPointData::CalcCostGradient() {
   CalcOriginalCostGradient();
 
   // Add terms from Augmented Lagrangian
-  CalcConstraintExpansions();
+//  CalcConstraintJacobians();
   CalcConstraintCostGradients();
+  return ErrorCodes::NoError;
+}
+
+ErrorCodes KnotPointData::CalcCostHessian() {
+  // TODO: don't update if the cost is quadratic, the constraints are linear, and the penalty is constant
+  // IDEA: Try to avoid updating the penalty when solving non-conic convex problems, and do gradient-only updates on the backward pass
+  ErrorCodes err;
+  CalcOriginalCostHessian();
+  err = CalcConstraintCostHessians();  // updates conic Hessians
+  if (err != ErrorCodes::NoError) return err;
   return ErrorCodes::NoError;
 }
 
@@ -394,26 +422,12 @@ ErrorCodes KnotPointData::CalcCostExpansion(bool force_update) {
 
   // These methods add the extra terms from the Augmented Lagrangian
   ErrorCodes err;
-  err = CalcConstraintCostGradients();
+//  CalcConstraintJacobians();
+  err = CalcConstraintCostGradients();  // updates conic Jacobian
   if (err != ErrorCodes::NoError) return err;
 
-  err = CalcConstraintCostHessians();
+  err = CalcConstraintCostHessians();  // updates conic Hessians
   if (err != ErrorCodes::NoError) return err;
-  return ErrorCodes::NoError;
-}
-
-ErrorCodes KnotPointData::CalcDynamicsExpansion() {
-  if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOpAtTeriminalKnotPoint;
-  if (!DynamicsAreLinear()) {
-    int n = GetStateDim();
-    int m = GetInputDim();
-    float h = GetTimeStep();
-    dynamics_jacobian_(dynamics_jac_.data(), x_.data(), u_.data(), h);
-    A_ = dynamics_jac_.leftCols(n);
-    B_ = dynamics_jac_.rightCols(m);
-  } else {
-    f_.setZero();
-  }
   return ErrorCodes::NoError;
 }
 
@@ -425,7 +439,7 @@ ErrorCodes KnotPointData::CalcConstraints() {
   return ErrorCodes::NoError;
 }
 
-ErrorCodes KnotPointData::CalcConstraintExpansions() {
+ErrorCodes KnotPointData::CalcConstraintJacobians() {
   int num_con = NumConstraints();
   for (int j = 0; j < num_con; ++j) {
     constraint_jacobian_[j](constraint_jac_[j].data(), x_.data(), u_.data());
@@ -433,38 +447,51 @@ ErrorCodes KnotPointData::CalcConstraintExpansions() {
   return ErrorCodes::NoError;
 }
 
+a_float KnotPointData::CalcViolations() {
+  // Assumes the constraints have already been calculated
+  a_float viol = 0.0;
+  int num_con = NumConstraints();
+  for (int j = 0; j < num_con; ++j) {
+    // TODO: can we use the storage of one of the temporary dual variables?
+    ConstraintType cone = constraint_type_[j];
+    ConicProjection(cone, constraint_dims_[j], constraint_val_[j].data(), v_[j].data());
+    v_[j].noalias() -= constraint_val_[j];
+    viol = std::max(viol, v_[j].lpNorm<Eigen::Infinity>());
+  }
+  return viol;
+}
+
 ErrorCodes KnotPointData::DualUpdate() {
   int ncons = NumConstraints();
   for (int j = 0; j < ncons; ++j) {
-    ConstraintType dual_cone = DualCone(constraint_type_[j]);
-
-    // Calculate estimated dual
-    z_est_[j].noalias() = z_[j] - rho_[j] * constraint_val_[j];
-
-    // Project the dual into the dual cone
-    ConicProjection(dual_cone, constraint_dims_[j], z_est_[j].data(), z_proj_[j].data());
-
-    // Copy to current dual
-    // TODO: Check if recalculating z_proj_ is needed
+//    ConstraintType dual_cone = DualCone(constraint_type_[j]);
+//
+//    // Calculate estimated dual
+//    z_est_[j].noalias() = z_[j] - rho_[j] * constraint_val_[j];
+//
+//    // Project the dual into the dual cone
+//    ConicProjection(dual_cone, constraint_dims_[j], z_est_[j].data(), z_proj_[j].data());
+//
+//    // Copy to current dual
+//    // TODO: Check if recalculating z_proj_ is needed
     z_ = z_proj_;
   }
   return ErrorCodes::NoError;
 }
 
-void KnotPointData::PenaltyUpdate(a_float scaling) {
+void KnotPointData::PenaltyUpdate(a_float scaling, a_float penalty_max) {
   int ncons = NumConstraints();
   for (int j = 0; j < ncons; ++j) {
-    rho_[j] *= scaling;
+    rho_[j] = std::min(rho_[j] * scaling, penalty_max);
   }
 }
 
 /////////////////////////////////////////////
 // Augmented Lagrangian Cost
 /////////////////////////////////////////////
-a_float KnotPointData::CalcConstraintCosts() {
-  // Assumes constraints have already been evaluated
+
+ErrorCodes KnotPointData::CalcProjectedDuals() {
   int num_con = NumConstraints();
-  a_float cost = 0;
   for (int j = 0; j < num_con; ++j) {
     ConstraintType dual_cone = DualCone(constraint_type_[j]);
 
@@ -473,35 +500,27 @@ a_float KnotPointData::CalcConstraintCosts() {
 
     // Project the dual into the dual cone
     ConicProjection(dual_cone, constraint_dims_[j], z_est_[j].data(), z_proj_[j].data());
-
-    // Calculate the cost
-    cost += z_proj_[j].squaredNorm() / (2 * rho_[j]);
   }
-  return cost;
+  return ErrorCodes::NoError;
 }
 
-ErrorCodes KnotPointData::CalcConstraintCostGradients() {
-  // Assumes the constraints and Jacobians have been evaluated
-  // Assumes the projected duals have already been calculated
+ErrorCodes KnotPointData::CalcConicJacobians() {
+  // Assumes Projected duals have been updated
   int num_con = NumConstraints();
   for (int j = 0; j < num_con; ++j) {
     // TODO: evaluate the Jacobian-transpose vector product directly
     ConstraintType dual_cone = DualCone(constraint_type_[j]);
     ConicProjectionJacobian(dual_cone, constraint_dims_[j], z_est_[j].data(), proj_jac_[j].data());
     proj_jvp_[j].noalias() = proj_jac_[j].transpose() * z_proj_[j];
-    lx_.noalias() -= constraint_jac_[j].leftCols(num_states_).transpose() * proj_jvp_[j];
-    lu_.noalias() -= constraint_jac_[j].rightCols(num_inputs_).transpose() * proj_jvp_[j];
   }
   return ErrorCodes::NoError;
 }
 
-ErrorCodes KnotPointData::CalcConstraintCostHessians() {
-  // Assumes the constraints and Jacobians have been evaluated
-  // Assumes the projected duals have already been calculated
-  // Assumes the projection Jacobian has already been calculated
+ErrorCodes KnotPointData::CalcConicHessians() {
+  // Assumes conic Jacobian-transpose vector product has already been calculated
+  // Assumes constraint Jacobians are up-to-date
   int num_con = NumConstraints();
   for (int j = 0; j < num_con; ++j) {
-    // TODO: evaluate the Jacobian-transpose vector product directly
     ConstraintType dual_cone = DualCone(constraint_type_[j]);
     int p = constraint_dims_[j];
 
@@ -516,8 +535,40 @@ ErrorCodes KnotPointData::CalcConstraintCostHessians() {
       jac_tmp_[j].noalias() = proj_hess_[j] * constraint_jac_[j];
       constraint_hess_[j].noalias() += rho_[j] * constraint_jac_[j].transpose() * jac_tmp_[j];
     }
+  }
+  return ErrorCodes::NoError;
+}
 
-    // Add to expansion
+a_float KnotPointData::CalcConstraintCosts() {
+  // Assumes constraints have already been evaluated
+  int num_con = NumConstraints();
+  a_float cost = 0;
+  CalcProjectedDuals();
+  for (int j = 0; j < num_con; ++j) {
+    cost += z_proj_[j].squaredNorm() / (2 * rho_[j]);
+  }
+  return cost;
+}
+
+ErrorCodes KnotPointData::CalcConstraintCostGradients() {
+  // Assumes the constraints and Jacobians have been evaluated
+  // Assumes the projected duals have already been calculated
+  int num_con = NumConstraints();
+  CalcConicJacobians();
+  for (int j = 0; j < num_con; ++j) {
+    lx_.noalias() -= constraint_jac_[j].leftCols(num_states_).transpose() * proj_jvp_[j];
+    lu_.noalias() -= constraint_jac_[j].rightCols(num_inputs_).transpose() * proj_jvp_[j];
+  }
+  return ErrorCodes::NoError;
+}
+
+ErrorCodes KnotPointData::CalcConstraintCostHessians() {
+  // Assumes the constraints and Jacobians have been evaluated
+  // Assumes the projected duals have already been calculated
+  // Assumes the projected Jacobian has already been calculated
+  int num_con = NumConstraints();
+  CalcConicHessians();
+  for (int j = 0; j < num_con; ++j) {
     int n = num_states_;
     int m = num_inputs_;
     lxx_ += constraint_hess_[j].topLeftCorner(n, n);

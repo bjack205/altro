@@ -117,8 +117,8 @@ TEST(Pendulum, Unconstrained) {
 TEST(Pendulum, GoalConstrained) {
   const int n = 2;
   const int m = 1;
-  const int N = 50;
-  const float tf = 3.0;
+  const int N = 20;
+  const float tf = 2.0;
   const float h = tf / static_cast<double>(N);
 
   // Objective
@@ -160,10 +160,10 @@ TEST(Pendulum, GoalConstrained) {
   auto goal_con = [xf](a_float *c, const a_float *x, const a_float *u) {
     (void)u;
     for (int i = 0; i < xf.size(); ++i) {
-      c[i] = x[i] - xf[i];
+      c[i] = xf[i] - x[i];
     }
   };
-  auto goal_jac = [n,m](a_float *jac, const a_float *x, const a_float *u) {
+  auto goal_jac = [=](a_float *jac, const a_float *x, const a_float *u) {
     (void)x;
     (void)u;
     Eigen::Map<MatrixXd> J(jac, n, n + m);
@@ -186,21 +186,18 @@ TEST(Pendulum, GoalConstrained) {
   solver.SetInput(u0.data(), m, 0, LastIndex);
 
   // Solve
-//  AltroOptions opts;
-//  opts.verbose = Verbosity::Inner;
-//  opts.iterations_max = 100;
-//  solver.SetOptions(opts);
-//  SolveStatus status = solver.Solve();
-//  EXPECT_EQ(status, SolveStatus::Success);
+  AltroOptions opts;
+  opts.verbose = Verbosity::Inner;
+  opts.iterations_max = 100;
+  solver.SetOptions(opts);
+  SolveStatus status = solver.Solve();
+  EXPECT_EQ(status, SolveStatus::Success);
+  fmt::print("status = {}\n", (int)status);
 
-//  VectorXd xN(n);
-//  solver.GetState(xN.data(), N);
-//  double dist_to_goal = (xN - xf).norm();
-//  fmt::print("distance to goal: {}\n", dist_to_goal);
-//  VectorXd xN_expected(n);
-//  xN_expected << 3.12099917161669, 0.0011966258762942175;
-//  double xf_err = (xN - xN_expected).norm();
-//  fmt::print("xf_err = {}\n", xf_err);
-//  EXPECT_LT(xf_err, 1e-5);
-//  EXPECT_LE(solver.GetIterations(), 10);
+  VectorXd xN(n);
+  solver.GetState(xN.data(), N);
+  double dist_to_goal = (xN - xf).norm();
+  fmt::print("distance to goal: {}\n", dist_to_goal);
+  EXPECT_LT(dist_to_goal, 1e-4);
+  EXPECT_LE(solver.GetIterations(), 10);
 }
