@@ -366,8 +366,8 @@ class ALTROSolver {
   /**********************************************
    * MPC Methods
    **********************************************/
-  ErrorCodes UpdateLinearCosts(const a_float* q, const a_float* r, int k_start = AllIndices,
-                               int k_stop = 0);
+  ErrorCodes UpdateLinearCosts(const a_float* q, const a_float* r, a_float c,
+                               int k_start = AllIndices, int k_stop = 0);
 
   ErrorCodes ShiftTrajectory();
 

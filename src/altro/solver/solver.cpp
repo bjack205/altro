@@ -162,8 +162,7 @@ ErrorCodes SolverImpl::CopyTrajectory() {
 
 a_float SolverImpl::CalcCost() {
   a_float cost = 0.0;
-  if (constraint_vals_up_to_date_) fmt::print("    Constraints already up-to-date (CalcCost)\n");
-  if (projected_duals_up_to_date_) fmt::print("    Constraints already up-to-date (CalcCost)\n");
+//  if (constraint_vals_up_to_date_) fmt::print("    Constraints already up-to-date (CalcCost)\n");
   for (int k = 0; k <= horizon_length_; ++k) {
     data_[k].CalcConstraints();
     a_float cost_k = data_[k].CalcCost();

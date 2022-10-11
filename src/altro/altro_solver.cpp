@@ -7,7 +7,7 @@
 
 #include "Eigen/Dense"
 #include "altro/solver/internal_types.hpp"
-//#include "altrocpp_interface/altrocpp_interface.hpp"
+// #include "altrocpp_interface/altrocpp_interface.hpp"
 #include "solver/solver.hpp"
 #include "utils/formatting.hpp"
 
@@ -76,7 +76,6 @@ ErrorCodes ALTROSolver::SetExplicitDynamics(ExplicitDynamicsFunction dynamics_fu
   for (int k = k_start; k < k_stop; ++k) {
     err = solver_->data_[k].SetDynamics(dynamics_function, dynamics_jacobian);
     if (err != ErrorCodes::NoError) return err;
-
   }
   return ErrorCodes::NoError;
 }
@@ -198,7 +197,7 @@ ErrorCodes ALTROSolver::SetConstraint(ConstraintFunction constraint_function,
   ErrorCodes err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
   if (IsInitialized()) {
     return ALTRO_THROW("Cannot Set Constraints: Solver Already Initialized.",
-                ErrorCodes::SolverAlreadyInitialized);
+                       ErrorCodes::SolverAlreadyInitialized);
   }
   err = AssertDimensionsAreSet(k_start, k_stop, "Cannot set constraint");
   if (err != ErrorCodes::NoError) return err;
@@ -215,7 +214,6 @@ ErrorCodes ALTROSolver::SetConstraint(ConstraintFunction constraint_function,
     int ncon = solver_->data_[k].NumConstraints();
     solver_->data_[k].SetConstraint(constraint_function, constraint_jacobian, dim, constraint_type,
                                     label);
-
 
     // Set index
     ConstraintIndex idx(k, ncon);
@@ -266,7 +264,7 @@ SolveStatus ALTROSolver::Solve() {
  ***************************************************************************************************/
 
 ErrorCodes ALTROSolver::UpdateLinearCosts(const altro::a_float *q, const altro::a_float *r,
-                                          int k_start, int k_stop) {
+                                          a_float c, int k_start, int k_stop) {
   ErrorCodes err = AssertInitialized();
   err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
   if (err != ErrorCodes::NoError) {
@@ -274,9 +272,21 @@ ErrorCodes ALTROSolver::UpdateLinearCosts(const altro::a_float *q, const altro::
                        err);
   }
   for (int k = k_start; k < k_stop; ++k) {
-    err = solver_->data_[k].UpdateLinearCosts(q, r);
+    err = solver_->data_[k].UpdateLinearCosts(q, r, c);
     if (err != ErrorCodes::NoError) {
       return ALTRO_THROW(fmt::format("Error in UpdateLinearCosts with k = ", k), err);
+    }
+  }
+  return ErrorCodes::NoError;
+}
+
+ErrorCodes ALTROSolver::ShiftTrajectory() {
+  // TODO: Do this with a shifted vector instead
+  int N = GetHorizonLength();
+  for (int k = 0; k < N; ++k) {
+    solver_->data_[k].x_ = solver_->data_[k + 1].x_;
+    if (k < N - 1) {
+      solver_->data_[k].u_ = solver_->data_[k + 1].u_;
     }
   }
   return ErrorCodes::NoError;

@@ -190,7 +190,7 @@ ErrorCodes KnotPointData::SetPenalty(a_float rho) {
   return ErrorCodes::NoError;
 }
 
-ErrorCodes KnotPointData::UpdateLinearCosts(const altro::a_float *q, const altro::a_float *r) {
+ErrorCodes KnotPointData::UpdateLinearCosts(const altro::a_float *q, const altro::a_float *r, a_float c) {
   if (!IsInitialized()) {
     return ALTRO_THROW(
         fmt::format("Cannot update linear costs at index {}. Knot point not initialized. ",
@@ -213,10 +213,13 @@ ErrorCodes KnotPointData::UpdateLinearCosts(const altro::a_float *q, const altro
     for (int i = 0; i < num_states_; ++i) {
       q_[i] = q[i];
     }
+  }
+  if (r != nullptr && !IsTerminalKnotPoint()) {
     for (int i = 0; i < num_inputs_; ++i) {
       r_[i] = r[i];
     }
   }
+  c_ = c;
   return ErrorCodes::NoError;
 }
 
