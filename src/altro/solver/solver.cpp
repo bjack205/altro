@@ -421,6 +421,7 @@ ErrorCodes SolverImpl::Solve() {
   // TODO: make this a TVLQR rollout with affine terms enabled
   OpenLoopRollout();
   CopyTrajectory();  // make the rolled out trajectory the reference trajectory
+  double cost_initial = CalcCost();
   for (int k = 0; k <= horizon_length_; ++k) {
     data_[k].CalcDynamicsExpansion();
     data_[k].CalcConstraintJacobians();
@@ -434,9 +435,10 @@ ErrorCodes SolverImpl::Solve() {
 
   // Start the iterations
   double alpha;
-  double cost_initial = CalcCost();
-  fmt::print("STARTING ALTRO iLQR SOLVE....\n");
-  fmt::print("  Initial Cost: {}\n", cost_initial);
+  if (opts.verbose > Verbosity::Silent) {
+    fmt::print("STARTING ALTRO iLQR SOLVE....\n");
+    fmt::print("  Initial Cost: {}\n", cost_initial);
+  }
   bool is_converged = false;
   bool stop_iterating = false;
 
@@ -487,12 +489,14 @@ ErrorCodes SolverImpl::Solve() {
     }
 
     // Print log
-    fmt::print(
-        "  iter = {:3d}, phi = {:8.4g} -> {:8.4g} ({:10.3g}), dphi = {:10.3g} -> {:10.3g}, alpha = "
-        "{:8.3g}, ls_iter = {:2d}, stat = {:8.3e}, feas = {:8.3e}, rho = {:7.2g}, dual update? "
-        "{}\n",
-        iter, phi0_, phi_, cost_decrease, dphi0_, dphi_, alpha, ls_iters_, stationarity,
-        feasibility, penalty, dual_update);
+    if (opts.verbose > Verbosity::Silent) {
+      fmt::print(
+          "  iter = {:3d}, phi = {:8.4g} -> {:8.4g} ({:10.3g}), dphi = {:10.3g} -> {:10.3g}, alpha = "
+          "{:8.3g}, ls_iter = {:2d}, stat = {:8.3e}, feas = {:8.3e}, rho = {:7.2g}, dual update? "
+          "{}\n",
+          iter, phi0_, phi_, cost_decrease, dphi0_, dphi_, alpha, ls_iters_, stationarity,
+          feasibility, penalty, dual_update);
+    }
 
     if (stop_iterating) break;
   }
@@ -500,9 +504,9 @@ ErrorCodes SolverImpl::Solve() {
     stats.status = SolveStatus::MaxIterations;
   }
   stats.iterations = iter + 1;
-  fmt::print("ALTRO SOLVE FINISHED!\n");
-  //  SetCppSolverOptions();
-  //  alsolver_.Solve();
+  if (opts.verbose > Verbosity::Silent) {
+    fmt::print("ALTRO SOLVE FINISHED!\n");
+  }
   return ErrorCodes::NoError;
 }
 

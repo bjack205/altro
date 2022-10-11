@@ -68,5 +68,6 @@ target_link_libraries(bicycle_test
   altro::test_utils
   fmt::fmt
   Eigen3::Eigen
+  nlohmann_json::nlohmann_json
 )
 gtest_discover_tests(bicycle_test)
