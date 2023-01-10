@@ -32,7 +32,7 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 # Enable testing
-option(ALTRO_BUILD_TESTS "Build tests for altro" ON)
+option(ALTRO_BUILD_TESTS "Build tests for altro" OFF)
 if (${ALTRO_BUILD_TESTS})
   FetchContent_Declare(googletest
     GIT_REPOSITORY https://github.com/google/googletest
