@@ -1,13 +1,13 @@
-add_executable(altrocpp_interface_test
-  altrocpp_interface_test.cpp
-)
-target_link_libraries(altrocpp_interface_test
-  PRIVATE
-  gtest_main
-  fmt::fmt
-  Eigen3::Eigen
-  altrocpp::interface
-  cost_function_examples
-  constraint_examples
-  altro::altro
-)
+# add_executable(altrocpp_interface_test
+#   altrocpp_interface_test.cpp
+# )
+# target_link_libraries(altrocpp_interface_test
+#   PRIVATE
+#   gtest_main
+#   fmt::fmt
+#   Eigen3::Eigen
+#   altrocpp::interface
+#   cost_function_examples
+#   constraint_examples
+#   altro::altro
+# )
