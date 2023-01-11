@@ -17,7 +17,7 @@ TEST(TVLQR_Tests, DoubleIntegrator) {
   // Problem definition
   /////////////////////////////////////////////
   using Matrix = Eigen::Matrix<lqr_float, Eigen::Dynamic, Eigen::Dynamic>;
-  using Vector = Eigen::Vector<lqr_float, Eigen::Dynamic>;
+  using Vector = Eigen::Matrix<lqr_float, Eigen::Dynamic, 1>;
 
   // Set dimensions
   constexpr int N = 10;

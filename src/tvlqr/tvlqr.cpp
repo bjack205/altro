@@ -11,9 +11,9 @@
 #include "altro/utils/formatting.hpp"
 
 using ConstMatrix = Eigen::Map<const Eigen::Matrix<lqr_float, Eigen::Dynamic, Eigen::Dynamic>>;
-using ConstVector = Eigen::Map<const Eigen::Vector<lqr_float, Eigen::Dynamic>>;
+using ConstVector = Eigen::Map<const Eigen::Matrix<lqr_float, Eigen::Dynamic, 1>>;
 using Matrix = Eigen::Map<Eigen::Matrix<lqr_float, Eigen::Dynamic, Eigen::Dynamic>>;
-using Vector = Eigen::Map<Eigen::Vector<lqr_float, Eigen::Dynamic>>;
+using Vector = Eigen::Map<Eigen::Matrix<lqr_float, Eigen::Dynamic, 1>>;
 
 int tvlqr_TotalMemSize(const int *nx, const int *nu, int num_horizon, bool is_diag) {
   if (!nx) return 0;

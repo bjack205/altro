@@ -10,7 +10,7 @@
 
 namespace altro {
 
-using Vector = Eigen::Vector<a_float, Eigen::Dynamic>;
+using Vector = Eigen::Matrix<a_float, Eigen::Dynamic, 1>;
 using Matrix = Eigen::Matrix<a_float, Eigen::Dynamic, Eigen::Dynamic>;
 using Eigen::VectorXi;
 
