@@ -316,7 +316,7 @@ int ALTROSolver::GetIterations() const { return solver_->stats.iterations; }
 
 a_float ALTROSolver::GetSolveTimeMs() const { return solver_->stats.solve_time.count(); }
 
-a_float ALTROSolver::GetPrimalFeasibility() const { return solver_->stats.primal_feasibility; };
+a_float ALTROSolver::GetPrimalFeasibility() const { return solver_->stats.primal_feasibility; }
 
 a_float ALTROSolver::GetFinalObjective() const { return solver_->stats.objective_value; }
 
