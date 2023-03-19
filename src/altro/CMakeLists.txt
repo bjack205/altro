@@ -9,6 +9,8 @@ add_library(altro_altro2
   altro_solver.cpp
 
   utils/formatting.hpp
+  utils/quaternion_utils.hpp
+  utils/quaternion_utils.cpp
 )
 target_link_libraries(altro_altro2
   PRIVATE
