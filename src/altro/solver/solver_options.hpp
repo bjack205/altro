@@ -36,6 +36,7 @@ struct AltroOptions {
   double max_solve_time = std::numeric_limits<a_float>::infinity();
   double use_backtracking_linesearch = false;
   bool throw_errors = true;
+  bool use_quaternion = false;
 };
 
 }

@@ -94,8 +94,8 @@ int tvlqr_BackwardPass(const int *nx, const int *nu, int num_horizon, const lqr_
     int m = nu[k];
     Matrix P_next(P[k + 1], nx[k + 1], nx[k + 1]);
     Vector p_next(p[k + 1], nx[k + 1]);
-//    fmt::print("P[{}]:\n{}\n", k, P_next.eval());
-//    fmt::print("p[{}]: [{}]\n", k, p_next.transpose().eval());
+    // fmt::print("P[{}]:\n{}\n", k, P_next.eval());
+    // fmt::print("p[{}]: [{}]\n", k, p_next.transpose().eval());
 
     Matrix Qxx_k(Qxx[k], n, n);
     Matrix Quu_k(Quu[k], m, m);

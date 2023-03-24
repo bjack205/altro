@@ -6,6 +6,7 @@
 #include "knotpoint_data.hpp"
 
 #include "altro/utils/formatting.hpp"
+#include "altro/utils/quaternion_utils.hpp"
 #include "cones.hpp"
 
 namespace altro {
@@ -36,6 +37,28 @@ ErrorCodes KnotPointData::SetDimension(int num_states, int num_inputs) {
   }
   num_states_ = num_states;
   num_inputs_ = num_inputs;
+  dims_are_set_ = true;
+  return ErrorCodes::NoError;
+}
+
+ErrorCodes KnotPointData::SetErrorDimension(int num_error_states, int num_error_inputs) {
+  if (num_error_states <= 0) {
+    return ALTRO_THROW(
+        fmt::format("Error state dimension must be specified at index {}", knot_point_index_),
+        ErrorCodes::ErrorStateDimUnknown);
+  }
+  if (num_error_inputs <= 0) {
+    std::string msg;
+    if (IsTerminalKnotPoint()) {
+      msg = fmt::format("Error input dimension must also be specified at the terminal knot point.");
+    } else {
+      msg = fmt::format("Error input dimension must be specified at index {}", knot_point_index_);
+    }
+    return ALTRO_THROW(msg, ErrorCodes::ErrorInputDimUnknown);
+  }
+  num_error_states_ = num_error_states;
+  num_error_inputs_ = num_error_inputs;
+  error_dims_are_set_ = true;
   return ErrorCodes::NoError;
 }
 
@@ -106,6 +129,31 @@ ErrorCodes KnotPointData::SetDiagonalCost(int n, int m, const a_float *Qdiag, co
 
   cost_fun_is_set_ = true;
   cost_fun_type_ = CostFunType::Diagonal;
+  return ErrorCodes::NoError;
+}
+
+ErrorCodes KnotPointData::SetQuaternionCost(int n, int m,
+                                            const a_float *Qdiag, const a_float *Rdiag, const a_float w,
+                                            const a_float *q, const a_float *r, a_float c) {
+  if (num_states_ > 0 && num_states_ != n) return ErrorCodes::DimensionMismatch;
+  if (num_inputs_ > 0 && num_inputs_ != m) return ErrorCodes::DimensionMismatch;
+
+  Q_ = Vector::Zero(n * n);
+  Q_.head(n) = Eigen::Map<const Vector>(Qdiag, n);
+
+  H_ = Matrix::Zero(m, n);
+  q_ = Eigen::Map<const Vector>(q, n);
+  c_ = c;
+  w_ = w;
+
+  if (!IsTerminalKnotPoint()) {
+    R_ = Vector::Zero(m * m);
+    R_.head(m) = Eigen::Map<const Vector>(Rdiag, m);
+    r_ = Eigen::Map<const Vector>(r, m);
+  }
+
+  cost_fun_is_set_ = true;
+  cost_fun_type_ = CostFunType::Quaternion;
   return ErrorCodes::NoError;
 }
 
@@ -230,6 +278,8 @@ ErrorCodes KnotPointData::Initialize() {
   const int n2 = GetNextStateDim();
   const int n = GetStateDim();
   const int m = GetInputDim();
+  const int en = GetErrorStateDim();
+  const int em = GetErrorInputDim();
   const float h = GetTimeStep();
   bool is_terminal = IsTerminalKnotPoint();
 
@@ -275,6 +325,9 @@ ErrorCodes KnotPointData::Initialize() {
   }
 
   // General data
+  x_ref = Vector::Zero(n);
+  u_ref = Vector::Zero(m);
+
   x = Vector::Zero(n);
   u = Vector::Zero(m);
   y = Vector::Zero(n);
@@ -282,6 +335,8 @@ ErrorCodes KnotPointData::Initialize() {
   x_ = Vector::Zero(n);
   u_ = Vector::Zero(m);
   y_ = Vector::Zero(n);
+
+  x_error_ = Vector::Zero(en);
 
   f_ = Vector::Zero(n2);
   dynamics_jac_ = Matrix::Zero(n2, n + m);
@@ -344,11 +399,63 @@ ErrorCodes KnotPointData::Initialize() {
   }
 
   // Backward pass data
-  lxx_ = Matrix::Zero(n, n);
-  luu_ = Matrix::Zero(m, m);
-  lux_ = Matrix::Zero(m, n);
-  lx_ = Vector::Zero(n);
-  lu_ = Vector::Zero(m);
+  if (use_quaternion) {
+    lxx_ = Matrix::Zero(en, en);
+    luu_ = Matrix::Zero(m, m);
+    lux_ = Matrix::Zero(m, en);
+    lx_ = Vector::Zero(en);
+    lu_ = Vector::Zero(m);
+
+    Qxx_ = Matrix::Zero(en, en);
+    Quu_ = Matrix::Zero(m, m);
+    Qux_ = Matrix::Zero(m, en);
+    Qx_ = Vector::Zero(en);
+    Qu_ = Vector::Zero(m);
+
+    Qxx_tmp_ = Matrix::Zero(en, en);
+    Quu_tmp_ = Matrix::Zero(m, m);
+    Qux_tmp_ = Matrix::Zero(m, en);
+    Qx_tmp_ = Vector::Zero(en);
+    Qu_tmp_ = Vector::Zero(m);
+
+    Quu_fact = Quu_.llt();
+    K_ = Matrix::Zero(m, en);
+    d_ = Vector::Zero(m);
+
+    P_ = Matrix::Zero(en, en);
+    p_ = Vector::Zero(en);
+
+    dx_da_ = Vector::Zero(en);
+    du_da_ = Vector::Zero(m);
+  } else {
+    lxx_ = Matrix::Zero(n, n);
+    luu_ = Matrix::Zero(m, m);
+    lux_ = Matrix::Zero(m, n);
+    lx_ = Vector::Zero(n);
+    lu_ = Vector::Zero(m);
+
+    Qxx_ = Matrix::Zero(n, n);
+    Quu_ = Matrix::Zero(m, m);
+    Qux_ = Matrix::Zero(m, n);
+    Qx_ = Vector::Zero(n);
+    Qu_ = Vector::Zero(m);
+
+    Qxx_tmp_ = Matrix::Zero(n, n);
+    Quu_tmp_ = Matrix::Zero(m, m);
+    Qux_tmp_ = Matrix::Zero(m, n);
+    Qx_tmp_ = Vector::Zero(n);
+    Qu_tmp_ = Vector::Zero(m);
+
+    Quu_fact = Quu_.llt();
+    K_ = Matrix::Zero(m, n);
+    d_ = Vector::Zero(m);
+
+    P_ = Matrix::Zero(n, n);
+    p_ = Vector::Zero(n);
+
+    dx_da_ = Vector::Zero(n);
+    du_da_ = Vector::Zero(m);
+  }
 
   if (!DynamicsAreLinear()) {
     A_ = Matrix::Zero(n2, n);
@@ -356,27 +463,10 @@ ErrorCodes KnotPointData::Initialize() {
     f_ = Vector::Zero(n2);
   }
 
-  Qxx_ = Matrix::Zero(n, n);
-  Quu_ = Matrix::Zero(m, m);
-  Qux_ = Matrix::Zero(m, n);
-  Qx_ = Vector::Zero(n);
-  Qu_ = Vector::Zero(m);
-
-  Qxx_tmp_ = Matrix::Zero(n, n);
-  Quu_tmp_ = Matrix::Zero(m, m);
-  Qux_tmp_ = Matrix::Zero(m, n);
-  Qx_tmp_ = Vector::Zero(n);
-  Qu_tmp_ = Vector::Zero(m);
-
-  Quu_fact = Quu_.llt();
-  K_ = Matrix::Zero(m, n);
-  d_ = Vector::Zero(m);
-
-  P_ = Matrix::Zero(n, n);
-  p_ = Vector::Zero(n);
-
-  dx_da_ = Vector::Zero(n);
-  du_da_ = Vector::Zero(m);
+  E_ = Matrix::Zero(n, en);
+  E_next_ = Matrix::Zero(n, en);
+  error_A_ = Matrix::Zero(en, en);
+  error_B_ = Matrix::Zero(en, em);  
 
   // Calculate Hessian if it's constant
   // Note: it's only truly constant if it's unconstrained
@@ -403,6 +493,19 @@ ErrorCodes KnotPointData::Initialize() {
 // Computational Methods
 /////////////////////////////////////////////
 
+ErrorCodes KnotPointData::CalcErrorState() {
+  x_error_.block<3, 1>(0, 0) = x_.block<3, 1>(0, 0) - x.block<3, 1>(0, 0);
+  
+  Eigen::Vector4d quat_ref;
+  Eigen::Vector4d quat_;
+  quat_ref = x.block<4, 1>(3, 0);
+  quat_ = x_.block<4, 1>(3, 0);
+  x_error_.block<3, 1>(3, 0) = inv_cayley_map(quat_mult(quat_conj(quat_ref), quat_));
+
+  x_error_.block<6, 1>(6, 0) = x_.block<6, 1>(7, 0) - x.block<6, 1>(7, 0);
+  return ErrorCodes::NoError;
+}
+
 ErrorCodes KnotPointData::CalcDynamicsExpansion() {
   if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOptAtTerminalKnotPoint;
   if (!DynamicsAreLinear()) {
@@ -415,6 +518,28 @@ ErrorCodes KnotPointData::CalcDynamicsExpansion() {
   } else {
     f_.setZero();
   }
+  return ErrorCodes::NoError;
+}
+
+ErrorCodes KnotPointData::CalcErrorDynamicsExpansion() {
+  // THIS FUNCTION MUST BE CALLED AFTER CalcDynamicsExpansion!!!
+  if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOptAtTerminalKnotPoint;
+
+  E_.setZero();
+  E_.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
+  E_.block<4, 3>(3, 3) = G(x_ref.block<4, 1>(3, 0));
+  E_.block<3, 3>(7, 6) = Eigen::Matrix3d::Identity();
+  E_.block<3, 3>(10, 9) = Eigen::Matrix3d::Identity();
+
+  E_next_.setZero();
+  E_next_.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
+  E_next_.block<4, 3>(3, 3) = G(next_knot_point_->x_ref.block<4, 1>(3, 0));
+  E_next_.block<3, 3>(7, 6) = Eigen::Matrix3d::Identity();
+  E_next_.block<3, 3>(10, 9) = Eigen::Matrix3d::Identity();
+
+  error_A_ = E_next_.transpose() * A_ * E_; // A_ is computed in CalcDynamicsExpansion() using dynamics_jac_
+  error_B_ = E_next_.transpose() * B_; // B_ is computed in CalcDynamicsExpansion() using dynamics_jac_
+
   return ErrorCodes::NoError;
 }
 
@@ -643,6 +768,17 @@ a_float KnotPointData::CalcOriginalCost() {
       J += c_;
       break;
     }
+    case CostFunType::Quaternion: {
+      J = 0.5 * x_.transpose() * Q_.head(n).asDiagonal() * x_;
+      J += q_.dot(x_);
+      J += w_ * (1 - abs(x_ref.segment<4>(3).transpose() * x_.segment<4>(3)));
+      if (!IsTerminalKnotPoint()) {
+        J += 0.5 * u_.transpose() * R_.head(m).asDiagonal() * u_;
+        J += r_.dot(u_);
+      }
+      J += c_;
+      break;
+    }
   }
   return J;
 }
@@ -677,6 +813,23 @@ void KnotPointData::CalcOriginalCostGradient() {
       }
       break;
     }
+    case CostFunType::Quaternion: {
+      lx_.setZero();
+      lx_.head(3) = Q_.head(3).asDiagonal() * x_.head(3);      
+      lx_.tail(6) = Q_.segment<6>(7).asDiagonal() * x_.tail(6);
+
+      lx_.head(3) += q_.head(3);
+      lx_.tail(6) += q_.tail(6);
+
+      double tmp_var = x_ref.segment<4>(3).transpose() * x_.segment<4>(3);
+      lx_.segment<4>(3) = -w_ * sgn(tmp_var) * x_ref.segment<4>(3).transpose() * G(x_.segment<4>(3));
+
+      if (!IsTerminalKnotPoint()) {
+        lu_ = R_.head(m).asDiagonal() * u_;
+        lu_ += r_;
+      }
+      break;
+    }
   }
 }
 
@@ -703,6 +856,19 @@ void KnotPointData::CalcOriginalCostHessian() {
         lux_.setZero();
       }
       break;
+    }
+    case CostFunType::Quaternion: {
+      lxx_.setZero();
+      lxx_.block<3, 3>(0, 0) = Q_.head(3).asDiagonal();
+      lxx_.block<6, 6>(6, 6) = Q_.segment<6>(7).asDiagonal();
+
+      double tmp_var = x_ref.segment<4>(3).transpose() * x_.segment<4>(3);
+      lxx_.block<3, 3>(3, 3) = sgn(tmp_var) * x_ref.segment<4>(3).transpose() * x_.segment<4>(3) * Eigen::Matrix3d::Identity();
+
+      if (!IsTerminalKnotPoint()) {
+        luu_ = R_.head(m).asDiagonal();
+        lux_.setZero();
+      }
     }
   }
 }

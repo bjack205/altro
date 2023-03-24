@@ -54,6 +54,8 @@ class SolverImpl {
   int horizon_length_;
   std::vector<int> nx_;   // number of states
   std::vector<int> nu_;   // number of inputs
+  std::vector<int> nx_error_;   // number of error states
+  std::vector<int> nu_error_;   // number of error inputs
   std::vector<float> h_;  // time steps
   Vector initial_state_;
 
@@ -85,6 +87,7 @@ class SolverImpl {
   bool cost_gradients_up_to_date_ = false;
   bool cost_hessians_up_to_date_ = false;
   bool dynamics_jacs_up_to_date_ = false;
+  bool error_dynamics_jacs_up_to_date_ = false;
 
   // TVLQR data arrays
   //   Note data is actually stored in data_, these are just pointers to that data to call tvlqr
@@ -95,6 +98,9 @@ class SolverImpl {
   std::vector<a_float*> A_;
   std::vector<a_float*> B_;
   std::vector<a_float*> f_;
+
+  std::vector<a_float*> error_A_;
+  std::vector<a_float*> error_B_;
 
   std::vector<a_float*> lxx_;
   std::vector<a_float*> luu_;

@@ -3,6 +3,8 @@
 // Copyright (c) 2022 Robotic Exploration Lab. All rights reserved.
 //
 
+#include <iostream>
+
 #include "solver.hpp"
 
 #include "altro/utils/formatting.hpp"
@@ -14,6 +16,8 @@ SolverImpl::SolverImpl(int N)
     : horizon_length_(N),
       nx_(N + 1, 0),
       nu_(N + 1, 0),
+      nx_error_(N + 1, 0),
+      nu_error_(N + 1, 0),
       h_(N),
       opts(),
       stats(),
@@ -23,6 +27,8 @@ SolverImpl::SolverImpl(int N)
       A_(N, nullptr),
       B_(N, nullptr),
       f_(N, nullptr),
+      error_A_(N, nullptr),
+      error_B_(N, nullptr),
       lxx_(N + 1, nullptr),
       luu_(N, nullptr),
       lux_(N, nullptr),
@@ -60,11 +66,18 @@ ErrorCodes SolverImpl::Initialize() {
     }
   }
 
-  // Initialize pointer arrays for TVLQR
+  // Initialize *next_knot_point_
   int N = horizon_length_;
+  for (int k = 0; k <= N - 1; ++k) {
+    data_[k].next_knot_point_ = &data_[k + 1];
+  }
+
+  // Initialize pointer arrays for TVLQR
   for (int k = 0; k < N; ++k) {
     nx_[k] = data_[k].GetStateDim();
     nu_[k] = data_[k].GetInputDim();
+    nx_error_[k] = data_[k].GetErrorStateDim();
+    nu_error_[k] = data_[k].GetErrorInputDim();
     x_[k] = data_[k].x_.data();
     u_[k] = data_[k].u_.data();
     y_[k] = data_[k].y_.data();
@@ -72,6 +85,9 @@ ErrorCodes SolverImpl::Initialize() {
     A_[k] = data_[k].A_.data();
     B_[k] = data_[k].B_.data();
     f_[k] = data_[k].f_.data();
+
+    error_A_[k] = data_[k].error_A_.data();
+    error_B_[k] = data_[k].error_B_.data();
 
     lxx_[k] = data_[k].lxx_.data();
     luu_[k] = data_[k].luu_.data();
@@ -98,6 +114,7 @@ ErrorCodes SolverImpl::Initialize() {
     Qu_tmp_[k] = data_[k].Qu_tmp_.data();
   }
   nx_[N] = data_[N].GetStateDim();
+  nx_error_[N] = data_[N].GetErrorStateDim();
   x_[N] = data_[N].x_.data();
   y_[N] = data_[N].y_.data();
   lxx_[N] = data_[N].lxx_.data();
@@ -127,6 +144,7 @@ ErrorCodes SolverImpl::OpenLoopRollout() {
   cost_gradients_up_to_date_ = false;
   cost_hessians_up_to_date_ = false;
   dynamics_jacs_up_to_date_ = false;
+  error_dynamics_jacs_up_to_date_ = false;
   return ErrorCodes::NoError;
 }
 
@@ -142,6 +160,7 @@ ErrorCodes SolverImpl::LinearRollout() {
   cost_gradients_up_to_date_ = false;
   cost_hessians_up_to_date_ = false;
   dynamics_jacs_up_to_date_ = false;
+  error_dynamics_jacs_up_to_date_ = false;
   return ErrorCodes::NoError;
 }
 
@@ -235,6 +254,7 @@ a_float SolverImpl::Feasibility() {
 /////////////////////////////////////////////
 
 ErrorCodes SolverImpl::ForwardPass(a_float* alpha) {
+  // std::cout << "Start Forward Pass" << std::endl;
   auto phi = [this](double alpha, double* phi, double* dphi) {
     this->MeritFunction(alpha, phi, dphi);
   };
@@ -260,6 +280,7 @@ ErrorCodes SolverImpl::ForwardPass(a_float* alpha) {
       data_[k].CalcCostGradient();
     }
   }
+  // std::cout << "End Forward Pass" << std::endl;
 
   if (std::isnan(*alpha) || !(res == linesearch::CubicLineSearch::ReturnCodes::MINIMUM_FOUND ||
                               res == linesearch::CubicLineSearch::ReturnCodes::HIT_MAX_STEPSIZE)) {
@@ -271,6 +292,7 @@ ErrorCodes SolverImpl::ForwardPass(a_float* alpha) {
 }
 
 ErrorCodes SolverImpl::MeritFunction(a_float alpha, a_float* phi, a_float* dphi) {
+  // std::cout << "Start Merit Function" << std::endl;
   if (phi == nullptr) return ErrorCodes::InvalidPointer;
   int N = horizon_length_;
   bool calc_derivative = dphi != nullptr;
@@ -287,7 +309,13 @@ ErrorCodes SolverImpl::MeritFunction(a_float alpha, a_float* phi, a_float* dphi)
     KnotPointData& knot_point = data_[k];
     KnotPointData& next_knot_point = data_[k + 1];
 
-    Vector dx = knot_point.x_ - knot_point.x;  // TODO: avoid these temporary arrays
+    Vector dx;
+    if (opts.use_quaternion) {
+      knot_point.CalcErrorState();
+      dx = knot_point.x_error_;
+    } else {
+      dx = knot_point.x_ - knot_point.x;  // TODO: avoid these temporary arrays
+    }
     Vector du = -knot_point.K_ * dx + alpha * knot_point.d_;
     knot_point.u_ = knot_point.u + du;
     knot_point.y_ = knot_point.P_ * dx + knot_point.p_;
@@ -320,7 +348,13 @@ ErrorCodes SolverImpl::MeritFunction(a_float alpha, a_float* phi, a_float* dphi)
   knot_point.CalcConstraints();
   double cost = knot_point.CalcCost();
   phi_ += cost;
-  Vector dx = knot_point.x_ - knot_point.x;
+  Vector dx;
+  if (opts.use_quaternion) {
+    knot_point.CalcErrorState();
+    dx = knot_point.x_error_;
+  } else {
+    dx = knot_point.x_ - knot_point.x;  // TODO: avoid these temporary arrays
+  }
   knot_point.y_ = knot_point.P_ * dx + knot_point.p_;
   *phi = phi_;
 
@@ -340,6 +374,7 @@ ErrorCodes SolverImpl::MeritFunction(a_float alpha, a_float* phi, a_float* dphi)
   cost_gradients_up_to_date_ = false;
   cost_hessians_up_to_date_ = false;
   dynamics_jacs_up_to_date_ = false;
+  error_dynamics_jacs_up_to_date_ = false;
 
   // Set the data that was updated
   constraint_vals_up_to_date_ = true;
@@ -347,10 +382,12 @@ ErrorCodes SolverImpl::MeritFunction(a_float alpha, a_float* phi, a_float* dphi)
 
   if (calc_derivative) {
     dynamics_jacs_up_to_date_ = true;
+    error_dynamics_jacs_up_to_date_ = true;
     cost_gradients_up_to_date_ = true;
     constraint_jacs_up_to_date_ = true;
     conic_jacs_up_to_date_ = true;
   }
+  // std::cout << "End Merit Function" << std::endl;
   return ErrorCodes::NoError;
 }
 
@@ -358,17 +395,30 @@ ErrorCodes SolverImpl::MeritFunction(a_float alpha, a_float* phi, a_float* dphi)
 // Backward Pass
 /////////////////////////////////////////////
 ErrorCodes SolverImpl::BackwardPass() {
+  // std::cout << "Start Backward Pass" << std::endl;
   int N = horizon_length_;
 
   a_float reg = 0.0;
   bool linear_only_update = false;
   bool is_diag = false;
-  int res = tvlqr_BackwardPass(nx_.data(), nu_.data(), N, A_.data(), B_.data(), f_.data(),
-                               lxx_.data(), luu_.data(), lux_.data(), lx_.data(), lu_.data(), reg,
-                               K_.data(), d_.data(), P_.data(), p_.data(), delta_V_, Qxx_.data(),
-                               Quu_.data(), Qux_.data(), Qx_.data(), Qu_.data(), Qxx_tmp_.data(),
-                               Quu_tmp_.data(), Qux_tmp_.data(), Qx_tmp_.data(), Qu_tmp_.data(),
-                               linear_only_update, is_diag);
+  int res = 0;
+  if (opts.use_quaternion) {
+    res = tvlqr_BackwardPass(nx_error_.data(), nu_error_.data(), N,
+                             error_A_.data(), error_B_.data(), f_.data(),
+                             lxx_.data(), luu_.data(), lux_.data(), lx_.data(), lu_.data(), reg,
+                             K_.data(), d_.data(), P_.data(), p_.data(), delta_V_, Qxx_.data(),
+                             Quu_.data(), Qux_.data(), Qx_.data(), Qu_.data(), Qxx_tmp_.data(),
+                             Quu_tmp_.data(), Qux_tmp_.data(), Qx_tmp_.data(), Qu_tmp_.data(),
+                             linear_only_update, is_diag);
+  } else {
+    res = tvlqr_BackwardPass(nx_.data(), nu_.data(), N, A_.data(), B_.data(), f_.data(),
+                             lxx_.data(), luu_.data(), lux_.data(), lx_.data(), lu_.data(), reg,
+                             K_.data(), d_.data(), P_.data(), p_.data(), delta_V_, Qxx_.data(),
+                             Quu_.data(), Qux_.data(), Qx_.data(), Qu_.data(), Qxx_tmp_.data(),
+                             Quu_tmp_.data(), Qux_tmp_.data(), Qx_tmp_.data(), Qu_tmp_.data(),
+                             linear_only_update, is_diag);
+  }
+  // std::cout << "End Backward Pass" << std::endl;
   // NOTE: this invalidates only the merit function derivative
   if (res != TVLQR_SUCCESS) {
     return ErrorCodes::BackwardPassFailed;
@@ -423,12 +473,16 @@ ErrorCodes SolverImpl::Solve() {
   CopyTrajectory();  // make the rolled out trajectory the reference trajectory
   double cost_initial = CalcCost();
   for (int k = 0; k <= horizon_length_; ++k) {
-    data_[k].CalcDynamicsExpansion();
+    data_[k].CalcDynamicsExpansion();      // Calculate A_ and B_
+    if (opts.use_quaternion) {
+      data_[k].CalcErrorDynamicsExpansion(); // Calculate error_A_ and error_B_
+    }
     data_[k].CalcConstraintJacobians();
     data_[k].CalcCostGradient();
     data_[k].SetPenalty(opts.penalty_initial);
   }
   dynamics_jacs_up_to_date_ = true;
+  error_dynamics_jacs_up_to_date_ = true;
   constraint_jacs_up_to_date_ = true;
   conic_jacs_up_to_date_ = true;
   cost_gradients_up_to_date_ = true;
@@ -450,6 +504,7 @@ ErrorCodes SolverImpl::Solve() {
     err = ForwardPass(&alpha);
     if (!(err == ErrorCodes::NoError || err == ErrorCodes::MeritFunctionGradientTooSmall)) {
       PrintErrorCode(err);
+      std::cout << "Merit Function Gradient Too Small" << std::endl;
       stop_iterating = true;
     }
 
@@ -464,6 +519,7 @@ ErrorCodes SolverImpl::Solve() {
     if (std::abs(stationarity) < opts.tol_stationarity &&
         feasibility < opts.tol_primal_feasibility) {
       is_converged = true;
+      std::cout << "Converged" << std::endl;
       stop_iterating = true;
       stats.status = SolveStatus::Success;
     }
@@ -489,14 +545,22 @@ ErrorCodes SolverImpl::Solve() {
     }
 
     // Print log
-    if (opts.verbose > Verbosity::Silent) {
-      fmt::print(
+    // if (opts.verbose > Verbosity::Silent) {
+    //   fmt::print(
+    //       "  iter = {:3d}, phi = {:8.4g} -> {:8.4g} ({:10.3g}), dphi = {:10.3g} -> {:10.3g}, alpha = "
+    //       "{:8.3g}, ls_iter = {:2d}, stat = {:8.3e}, feas = {:8.3e}, rho = {:7.2g}, dual update? "
+    //       "{}\n",
+    //       iter, phi0_, phi_, cost_decrease, dphi0_, dphi_, alpha, ls_iters_, stationarity,
+    //       feasibility, penalty, dual_update);
+    // }
+    fmt::print(
           "  iter = {:3d}, phi = {:8.4g} -> {:8.4g} ({:10.3g}), dphi = {:10.3g} -> {:10.3g}, alpha = "
           "{:8.3g}, ls_iter = {:2d}, stat = {:8.3e}, feas = {:8.3e}, rho = {:7.2g}, dual update? "
           "{}\n",
           iter, phi0_, phi_, cost_decrease, dphi0_, dphi_, alpha, ls_iters_, stationarity,
           feasibility, penalty, dual_update);
-    }
+    std::cout << "std::abs(stationarity) = " << std::abs(stationarity) << std::endl;
+    std::cout << "bool stop_iterating = " << stop_iterating << std::endl;
 
     if (stop_iterating) break;
   }

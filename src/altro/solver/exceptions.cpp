@@ -20,6 +20,12 @@ const char* ErrorCodeToString(ErrorCodes err) {
     case ErrorCodes::InputDimUnknown:
       return "input dimension unknown";
       break;
+    case ErrorCodes::ErrorStateDimUnknown:
+      return "error state dimension unknown";
+      break;
+    case ErrorCodes::ErrorInputDimUnknown:
+      return "error input dimension unknown";
+      break;
     case ErrorCodes::NextStateDimUnknown:
       return "next state dimension unknown";
       break;

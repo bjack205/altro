@@ -14,7 +14,7 @@ namespace altro {
 
 class KnotPointData {
   static constexpr int kMaxConstraints = std::numeric_limits<int>::max();
-  enum class CostFunType { Generic, Quadratic, Diagonal };
+  enum class CostFunType { Generic, Quadratic, Diagonal, Quaternion };
 
  public:
   explicit KnotPointData(int index, bool is_terminal);
@@ -28,6 +28,7 @@ class KnotPointData {
 
   // Setters
   ErrorCodes SetDimension(int num_states, int num_inputs);
+  ErrorCodes SetErrorDimension(int num_error_states, int num_error_inputs);
   ErrorCodes SetNextStateDimension(int num_states_next);
   ErrorCodes SetTimestep(float h);
 
@@ -35,6 +36,11 @@ class KnotPointData {
                               const a_float *Hmat, const a_float *q, const a_float *r, a_float c);
   ErrorCodes SetDiagonalCost(int n, int m, const a_float *Qdiag, const a_float *Rdiag,
                              const a_float *q, const a_float *r, a_float c);
+  /**
+   * @todo implement SetQuaternionCost
+   */
+  ErrorCodes SetQuaternionCost(int n, int m, const a_float *Qdiag, const a_float *Rdiag, const a_float w,
+                               const a_float *q, const a_float *r, a_float c);
   ErrorCodes SetCostFunction(CostFunction cost_function, CostGradient cost_gradient,
                              CostHessian cost_hessian);
 
@@ -59,11 +65,13 @@ class KnotPointData {
 
   // Calculation methods
   a_float CalcCost();
+  ErrorCodes CalcErrorState();
   ErrorCodes CalcCostGradient();
   ErrorCodes CalcCostHessian();
   ErrorCodes CalcCostExpansion(bool force_update);
   ErrorCodes CalcDynamics(a_float *xnext);
   ErrorCodes CalcDynamicsExpansion();
+  ErrorCodes CalcErrorDynamicsExpansion();
   ErrorCodes CalcConstraints();
   ErrorCodes CalcConstraintJacobians();
   ErrorCodes CalcProjectedDuals();
@@ -85,6 +93,10 @@ class KnotPointData {
   int GetStateDim() const { return num_states_; }
 
   int GetInputDim() const { return num_inputs_; }
+
+  int GetErrorStateDim() const { return num_error_states_; }
+
+  int GetErrorInputDim() const { return num_error_inputs_; }
 
   float GetTimeStep() const { return h_; }
 
@@ -108,6 +120,8 @@ class KnotPointData {
   int num_next_state_ = 0;
   int num_states_ = 0;
   int num_inputs_ = 0;
+  int num_error_states_ = 0;
+  int num_error_inputs_ = 0;
   float h_ = 0.0;
 
   // Cost function
@@ -118,6 +132,7 @@ class KnotPointData {
 
   Vector Q_;
   Vector R_;
+  a_float w_;
   Matrix H_;
   Vector q_;
   Vector r_;
@@ -128,6 +143,12 @@ class KnotPointData {
   Vector affine_term_;
   ExplicitDynamicsFunction dynamics_function_;
   ExplicitDynamicsJacobian dynamics_jacobian_;
+
+  // Error dynamics
+  ExplicitDynamicsFunction error_dynamics_function_;
+  ExplicitDynamicsJacobian error_dynamics_jacobian_;
+  Matrix E_;
+  Matrix E_next_;
 
   // Bound constraint
   Vector x_hi_;
@@ -142,7 +163,6 @@ class KnotPointData {
   VectorXi u_lo_inds_;
   VectorXi u_eq_inds_;
 
-
   // Constraints
   std::vector<ConstraintFunction> constraint_function_;
   std::vector<ConstraintJacobian> constraint_jacobian_;
@@ -152,12 +172,21 @@ class KnotPointData {
 
   // Flags
   bool dims_are_set_ = false;
+  bool error_dims_are_set_ = false;
   bool cost_fun_is_set_ = false;
   bool dynamics_is_set_ = false;
   bool is_initialized_ = false;
   bool is_terminal_ = false;
+  bool use_quaternion = true;
 
  public:  // NOTE: making this data public for now so it's easy to access
+  // The pointer to the next knot point
+  KnotPointData *next_knot_point_ = nullptr;
+
+  // Reference
+  Vector x_ref;
+  Vector u_ref;
+
   // States and controls
   Vector x;  // state
   Vector u;  // input
@@ -167,6 +196,8 @@ class KnotPointData {
   Vector x_;  // temp state
   Vector u_;  // temp input
   Vector y_;  // temp dynamics dual
+
+  Vector x_error_; // temp error state
 
   Matrix dynamics_jac_;
   Vector dynamics_val_;
@@ -207,6 +238,9 @@ class KnotPointData {
   Matrix A_;
   Matrix B_;
   Vector f_;
+
+  Matrix error_A_;
+  Matrix error_B_;
 
   Matrix Qxx_;
   Matrix Quu_;

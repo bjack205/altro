@@ -46,6 +46,24 @@ ErrorCodes ALTROSolver::SetDimension(int num_states, int num_inputs, int k_start
   return ErrorCodes::NoError;
 }
 
+ErrorCodes ALTROSolver::SetErrorDimension(int num_error_states, int num_error_inputs,
+                                          int k_start, int k_stop) {
+  if (IsInitialized()) {
+    return ALTRO_THROW("Cannot change the error dimension once the solver has been initialized.",
+                       ErrorCodes::SolverAlreadyInitialized);
+  }
+  ErrorCodes err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
+  if (err != ErrorCodes::NoError) return err;
+  if (num_error_states <= 0) return ErrorCodes::ErrorStateDimUnknown;
+  for (int k = k_start; k < k_stop; ++k) {
+    solver_->nx_error_[k] = num_error_states;
+    solver_->nu_error_[k] = num_error_inputs;
+    err = solver_->data_[k].SetErrorDimension(num_error_states, num_error_inputs);
+    if (err != ErrorCodes::NoError) return err;
+  }
+  return ErrorCodes::NoError;
+}
+
 ErrorCodes ALTROSolver::SetTimeStep(float h, int k_start, int k_stop) {
   ErrorCodes err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Exclusive);
   if (err != ErrorCodes::NoError) return err;
@@ -171,6 +189,43 @@ ErrorCodes ALTROSolver::SetLQRCost(int num_states, int num_inputs, const a_float
   return ErrorCodes::NoError;
 }
 
+ErrorCodes ALTROSolver::SetQuaternionCost(int num_states, int num_inputs,
+                                          const a_float* Q_diag, const a_float* R_diag, const a_float w,
+                                          const a_float* x_ref, const a_float* u_ref,
+                                          int k_start, int k_stop) {
+  ErrorCodes err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
+  err = AssertDimensionsAreSet(k_start, k_stop, "Cannot set the cost function");
+  if (err != ErrorCodes::NoError) return err;
+
+  int N = GetHorizonLength();
+  for (int k = k_start; k < k_stop; ++k) {
+    int n = this->GetStateDim(k);
+    int m = this->GetInputDim(k);
+    if (n != num_states) {
+      return ALTRO_THROW(fmt::format("State dimension mismatch at index {}. Expected {}, got {}", k,
+                                     n, num_states),
+                         ErrorCodes::DimensionMismatch);
+    }
+    if (k != GetHorizonLength() && m != num_inputs) {
+      return ALTRO_THROW(fmt::format("Input dimension mismatch at index {}. Expected {}, got {}", k,
+                                     m, num_inputs),
+                         ErrorCodes::DimensionMismatch);
+    }
+    Eigen::Map<const Vector> Qd(Q_diag, n);
+    Eigen::Map<const Vector> Rd(R_diag, m);
+    Eigen::Map<const Vector> xref(x_ref, n);
+    Eigen::Map<const Vector> uref(u_ref, m);
+    Vector q = -(Qd.asDiagonal() * xref);
+    Vector r = -(Rd.asDiagonal() * uref);
+    a_float c = 0.5 * xref.transpose() * Qd.asDiagonal() * xref;
+    if (k != N) {
+      c += 0.5 * uref.transpose() * Rd.asDiagonal() * uref;
+    }
+    solver_->data_[k].SetQuaternionCost(n, m, Q_diag, R_diag, w, q.data(), r.data(), c);
+  }
+  return ErrorCodes::NoError;
+}
+
 /////////////////////////////////////////////
 // Other Setters
 /////////////////////////////////////////////
@@ -235,6 +290,7 @@ ErrorCodes ALTROSolver::SetState(const a_float *x, int n, int k_start, int k_sto
   for (int k = k_start; k < k_stop; ++k) {
     AssertStateDim(k, n);
     solver_->data_[k].x_ = Eigen::Map<const Vector>(x, n);
+    solver_->data_[k].x_ref = Eigen::Map<const Vector>(x, n);
   }
   return ErrorCodes::NoError;
 }
@@ -246,6 +302,7 @@ ErrorCodes ALTROSolver::SetInput(const a_float *u, int m, int k_start, int k_sto
   for (int k = k_start; k < k_stop; ++k) {
     AssertInputDim(k, m);
     solver_->data_[k].u_ = Eigen::Map<const Vector>(u, m);
+    solver_->data_[k].u_ref = Eigen::Map<const Vector>(u, m);
   }
   return ErrorCodes::NoError;
 }

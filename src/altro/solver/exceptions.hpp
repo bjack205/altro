@@ -25,6 +25,8 @@ enum class ErrorCodes {
   NoError,
   StateDimUnknown,
   InputDimUnknown,
+  ErrorStateDimUnknown,
+  ErrorInputDimUnknown,
   NextStateDimUnknown,
   DimensionUnknown,
   BadIndex,
