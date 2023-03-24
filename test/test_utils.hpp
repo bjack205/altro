@@ -11,11 +11,9 @@
 #include "altro/solver/typedefs.hpp"
 #include "altro/utils/formatting.hpp"
 
-void discrete_double_integrator_dynamics(double *xnext, const double *x, const double *u, float h,
-                                         int dim);
+void discrete_double_integrator_dynamics(double *xnext, const double *x, const double *u, float h, int dim);
 
-void discrete_double_integrator_jacobian(double *jac, const double *x, const double *u, float h,
-                                         int dim);
+void discrete_double_integrator_jacobian(double *jac, const double *x, const double *u, float h, int dim);
 
 void cartpole_dynamics_midpoint(double *xnext, const double *x, const double *u, float h);
 void cartpole_jacobian_midpoint(double *xnext, const double *x, const double *u, float h);
@@ -27,15 +25,13 @@ using ContinuousDynamicsFunction = std::function<void(double *, const double *, 
 using ContinuousDynamicsJacobian = std::function<void(double *, const double *, const double *)>;
 
 altro::ExplicitDynamicsFunction MidpointDynamics(int n, int m, ContinuousDynamicsFunction f);
-altro::ExplicitDynamicsJacobian MidpointJacobian(int n, int m, ContinuousDynamicsFunction f,
-                                                 ContinuousDynamicsJacobian jac);
+altro::ExplicitDynamicsJacobian MidpointJacobian(int n, int m, ContinuousDynamicsFunction f, ContinuousDynamicsJacobian jac);
 
 class BicycleModel {
  public:
   enum class ReferenceFrame { CenterOfGravity, Rear, Front };
 
-  explicit BicycleModel(ReferenceFrame frame = ReferenceFrame::CenterOfGravity)
-      : reference_frame_(frame) {}
+  explicit BicycleModel(ReferenceFrame frame = ReferenceFrame::CenterOfGravity) : reference_frame_(frame) {}
 
   void Dynamics(double *x_dot, const double *x, const double *u) const;
   void Jacobian(double *jac, const double *x, const double *u) const;
@@ -54,5 +50,13 @@ class BicycleModel {
   double distance_to_rear_wheels_ = 1.5;
 };
 
-void ReadScottyTrajectory(int *Nref, float *tref, std::vector<Eigen::Vector4d> *xref,
-                          std::vector<Eigen::Vector2d> *uref);
+class QuadrupedModel {
+ public:
+  void srb_ct_dynamics(double *x_dot, const double *x, const double *u, Eigen::Matrix<double, 3, 4> foot_pos_body) const;
+  void srb_ct_jacobian(double *jac, const double *x, const double *u, Eigen::Matrix<double, 3, 4> foot_pos_body) const;
+
+  static constexpr int NumStates = 13;
+  static constexpr int NumInputs = 12;
+};
+
+void ReadScottyTrajectory(int *Nref, float *tref, std::vector<Eigen::Vector4d> *xref, std::vector<Eigen::Vector2d> *uref);

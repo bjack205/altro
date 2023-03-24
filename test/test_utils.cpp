@@ -288,3 +288,10 @@ void ReadScottyTrajectory(int *Nref, float *tref, std::vector<Eigen::Vector4d> *
   f.close();
 }
 
+void QuadrupedModel::srb_ct_dynamics(double *x_dot, const double *x, const double *u, Eigen::Matrix<double, 3, 4> foot_pos_body) const {
+
+}
+
+void QuadrupedModel::srb_ct_jacobian(double *jac, const double *x, const double *u, Eigen::Matrix<double, 3, 4> foot_pos_body) const {
+
+}
