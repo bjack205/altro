@@ -22,6 +22,9 @@ add_library(altro_impl STATIC
 
   cones.cpp
   cones.hpp
+
+  ../utils/quaternion_utils.cpp
+  ../utils/quaternion_utils.hpp
 )
 target_link_libraries(altro_impl
   PUBLIC

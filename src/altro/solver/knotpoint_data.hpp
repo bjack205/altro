@@ -17,6 +17,8 @@ class KnotPointData {
   enum class CostFunType { Generic, Quadratic, Diagonal, Quaternion };
 
  public:
+  bool use_quaternion = false;
+
   explicit KnotPointData(int index, bool is_terminal);
 
   // Prohibit copying
@@ -177,7 +179,6 @@ class KnotPointData {
   bool dynamics_is_set_ = false;
   bool is_initialized_ = false;
   bool is_terminal_ = false;
-  bool use_quaternion = true;
 
  public:  // NOTE: making this data public for now so it's easy to access
   // The pointer to the next knot point

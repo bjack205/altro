@@ -22,7 +22,7 @@ void discrete_double_integrator_dynamics(double *xnext, const double *x, const d
     xnext[i] = x[i] + x[i + dim] * h + u[i] * b;
     xnext[i + dim] = x[i + dim] + u[i] * h;
   }
-};
+}
 
 void discrete_double_integrator_jacobian(double *jac, const double *x, const double *u, float h,
                                          int dim) {

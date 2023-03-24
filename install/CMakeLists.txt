@@ -15,7 +15,7 @@ set(CMAKE_INSTALL_DOCDIR ${CMAKE_INSTALL_DATAROOTDIR}/doc/${PROJECT_NAME})
 # Install targets from this project
 set(ALTRO_INSTALL_CMAKE_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})  # location of version and config files
 
-install(TARGETS altro_altro2
+install(TARGETS altro_altro2 altro_tvlqr linesearch_linesearch
   EXPORT AltroTargets
   INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

@@ -135,6 +135,7 @@ ErrorCodes SolverImpl::OpenLoopRollout() {
   data_[0].x_ = initial_state_;
   for (int k = 0; k < horizon_length_; ++k) {
     data_[k].CalcDynamics(data_[k + 1].x_.data());
+    data_[k].use_quaternion = opts.use_quaternion;
   }
   constraint_vals_up_to_date_ = false;
   constraint_jacs_up_to_date_ = false;
