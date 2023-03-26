@@ -232,8 +232,11 @@ a_float SolverImpl::Stationarity() {
   for (int k = 0; k < N; ++k) {
     KnotPointData& z = data_[k];
     KnotPointData& zn = data_[k + 1];
-    res_x = std::max(res_x, (z.lx_ + z.A_.transpose() * zn.y_ - z.y_).lpNorm<Eigen::Infinity>());
-    res_u = std::max(res_u, (z.lu_ + z.B_.transpose() * zn.y_).lpNorm<Eigen::Infinity>());
+    // @todo
+//    res_x = std::max(res_x, (z.lx_ + z.A_.transpose() * zn.y_ - z.y_).lpNorm<Eigen::Infinity>());
+//    res_u = std::max(res_u, (z.lu_ + z.B_.transpose() * zn.y_).lpNorm<Eigen::Infinity>());
+    res_x = std::max(res_x, (z.lx_ + z.error_A_.transpose() * zn.y_ - z.y_).lpNorm<Eigen::Infinity>());
+    res_u = std::max(res_u, (z.lu_ + z.error_B_.transpose() * zn.y_).lpNorm<Eigen::Infinity>());
   }
   KnotPointData& z = data_[N];
   res_x = std::max(res_x, (z.lx_ - z.y_).lpNorm<Eigen::Infinity>());
@@ -332,9 +335,10 @@ ErrorCodes SolverImpl::MeritFunction(a_float alpha, a_float* phi, a_float* dphi)
     if (calc_derivative) {
       // Calculate gradient of x and u with respect to alpha
       knot_point.CalcDynamicsExpansion();
+      // @todo
       knot_point.du_da_ = -knot_point.K_ * knot_point.dx_da_ + knot_point.d_;
-      next_knot_point.dx_da_ =
-          knot_point.A_ * knot_point.dx_da_ + knot_point.B_ * knot_point.du_da_;
+//      next_knot_point.dx_da_ = knot_point.A_ * knot_point.dx_da_ + knot_point.B_ * knot_point.du_da_;
+      next_knot_point.dx_da_ = knot_point.error_A_ * knot_point.dx_da_ + knot_point.error_B_ * knot_point.du_da_;
 
       // Calculate the gradient of the cost with respect to alpha
       knot_point.CalcConstraintJacobians();
@@ -546,27 +550,20 @@ ErrorCodes SolverImpl::Solve() {
     }
 
     // Print log
-    // if (opts.verbose > Verbosity::Silent) {
-    //   fmt::print(
-    //       "  iter = {:3d}, phi = {:8.4g} -> {:8.4g} ({:10.3g}), dphi = {:10.3g} -> {:10.3g}, alpha = "
-    //       "{:8.3g}, ls_iter = {:2d}, stat = {:8.3e}, feas = {:8.3e}, rho = {:7.2g}, dual update? "
-    //       "{}\n",
-    //       iter, phi0_, phi_, cost_decrease, dphi0_, dphi_, alpha, ls_iters_, stationarity,
-    //       feasibility, penalty, dual_update);
-    // }
-    fmt::print(
+    if (opts.verbose > Verbosity::Silent) {
+      fmt::print(
           "  iter = {:3d}, phi = {:8.4g} -> {:8.4g} ({:10.3g}), dphi = {:10.3g} -> {:10.3g}, alpha = "
           "{:8.3g}, ls_iter = {:2d}, stat = {:8.3e}, feas = {:8.3e}, rho = {:7.2g}, dual update? "
           "{}\n",
           iter, phi0_, phi_, cost_decrease, dphi0_, dphi_, alpha, ls_iters_, stationarity,
           feasibility, penalty, dual_update);
-    std::cout << "std::abs(stationarity) = " << std::abs(stationarity) << std::endl;
-    std::cout << "bool stop_iterating = " << stop_iterating << std::endl;
+    }
 
     if (stop_iterating) break;
   }
   if (!is_converged && iter == opts.iterations_max) {
     stats.status = SolveStatus::MaxIterations;
+    std::cout << "Max iterations reached" << std::endl;
   }
   stats.iterations = iter + 1;
   if (opts.verbose > Verbosity::Silent) {

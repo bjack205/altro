@@ -25,7 +25,7 @@ target_compile_definitions(altro_test_utils
 
 add_executable(altro_api
   altro_api.cpp
-        planning_with_attitude_test.cpp)
+)
 target_link_libraries(altro_api
   PRIVATE
   gtest_main
@@ -72,16 +72,16 @@ target_link_libraries(bicycle_test
 )
 gtest_discover_tests(bicycle_test)
 
-add_executable(planning_with_attitude_test
-        planning_with_attitude_test.cpp
-        )
-target_link_libraries(planning_with_attitude_test
-        PRIVATE
-        gtest_main
-        altro::altro
-        altro::test_utils
-        fmt::fmt
-        Eigen3::Eigen
-        nlohmann_json::nlohmann_json
-        )
-gtest_discover_tests(planning_with_attitude_test)
+add_executable(simple_quaternion_track_test
+simple_quaternion_track_test.cpp
+)
+target_link_libraries(simple_quaternion_track_test
+  PRIVATE
+  gtest_main
+  altro::altro
+  altro::test_utils
+  fmt::fmt
+  Eigen3::Eigen
+  nlohmann_json::nlohmann_json
+)
+gtest_discover_tests(simple_quaternion_track_test)

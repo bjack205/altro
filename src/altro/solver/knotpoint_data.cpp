@@ -2,7 +2,7 @@
 // Created by Brian Jackson on 9/12/22.
 // Copyright (c) 2022 Robotic Exploration Lab. All rights reserved.
 //
-
+#include <iostream>
 #include "knotpoint_data.hpp"
 
 #include "altro/utils/formatting.hpp"
@@ -134,7 +134,7 @@ ErrorCodes KnotPointData::SetDiagonalCost(int n, int m, const a_float *Qdiag, co
 
 ErrorCodes KnotPointData::SetQuaternionCost(int n, int m,
                                             const a_float *Qdiag, const a_float *Rdiag, const a_float w,
-                                            const a_float *q, const a_float *r, a_float c) {
+                                            const a_float *q, const a_float *r, a_float c, int quat_start_index) {
   if (num_states_ > 0 && num_states_ != n) return ErrorCodes::DimensionMismatch;
   if (num_inputs_ > 0 && num_inputs_ != m) return ErrorCodes::DimensionMismatch;
 
@@ -145,6 +145,19 @@ ErrorCodes KnotPointData::SetQuaternionCost(int n, int m,
   q_ = Eigen::Map<const Vector>(q, n);
   c_ = c;
   w_ = w;
+  quat_start_index_ = quat_start_index;
+
+  // Q_reduced_ = Vector::Zero((n - 1) * (n - 1));
+  // // std::cout << "Q_reduced_ = " << std::endl << Q_reduced_ << std::endl;
+  // Q_reduced_.head(quat_start_index_ + 3) = Q_.head(quat_start_index_ + 3);
+  // Q_reduced_.segment(n - quat_start_index_ - 4, quat_start_index_ + 3) = Q_.segment(n - quat_start_index_ - 4, quat_start_index_ + 4);
+  // // std::cout << "Q_reduced_ = " << std::endl << Q_reduced_ << std::endl;
+
+  // q_reduced_ = Vector::Zero(n - 1);
+  // // std::cout << "q_reduced_ = " << std::endl << q_reduced_ << std::endl;
+  // q_reduced_.head(quat_start_index_ + 3) = q_.head(quat_start_index_ + 3);
+  // q_reduced_.segment(n - quat_start_index_ - 4, quat_start_index_ + 3) = q_.segment(n - quat_start_index_ - 4, quat_start_index_ + 4);
+  // // std::cout << "q_reduced_ = " << std::endl << q_reduced_ << std::endl;
 
   if (!IsTerminalKnotPoint()) {
     R_ = Vector::Zero(m * m);
@@ -160,8 +173,8 @@ ErrorCodes KnotPointData::SetQuaternionCost(int n, int m,
 ErrorCodes KnotPointData::SetCostFunction(CostFunction cost_function, CostGradient cost_gradient,
                                           CostHessian cost_hessian) {
   cost_function_ = std::move(cost_function);
-  cost_gradient = std::move(cost_gradient);
-  cost_hessian = std::move(cost_hessian);
+  cost_gradient_ = std::move(cost_gradient);
+  cost_hessian_ = std::move(cost_hessian);
 
   cost_fun_is_set_ = true;
   cost_fun_type_ = CostFunType::Generic;
@@ -399,6 +412,7 @@ ErrorCodes KnotPointData::Initialize() {
   }
 
   // Backward pass data
+  // @todo use_quaternion is always true
   if (use_quaternion) {
     lxx_ = Matrix::Zero(en, en);
     luu_ = Matrix::Zero(m, m);
@@ -466,7 +480,7 @@ ErrorCodes KnotPointData::Initialize() {
   E_ = Matrix::Zero(n, en);
   E_next_ = Matrix::Zero(n, en);
   error_A_ = Matrix::Zero(en, en);
-  error_B_ = Matrix::Zero(en, em);  
+  error_B_ = Matrix::Zero(en, em);
 
   // Calculate Hessian if it's constant
   // Note: it's only truly constant if it's unconstrained
@@ -494,15 +508,16 @@ ErrorCodes KnotPointData::Initialize() {
 /////////////////////////////////////////////
 
 ErrorCodes KnotPointData::CalcErrorState() {
-  x_error_.block<3, 1>(0, 0) = x_.block<3, 1>(0, 0) - x.block<3, 1>(0, 0);
-  
-  Eigen::Vector4d quat_ref;
-  Eigen::Vector4d quat_;
-  quat_ref = x.block<4, 1>(3, 0);
-  quat_ = x_.block<4, 1>(3, 0);
-  x_error_.block<3, 1>(3, 0) = inv_cayley_map(quat_mult(quat_conj(quat_ref), quat_));
+//  x_error_.block<3, 1>(0, 0) = x_.block<3, 1>(0, 0) - x.block<3, 1>(0, 0);
 
-  x_error_.block<6, 1>(6, 0) = x_.block<6, 1>(7, 0) - x.block<6, 1>(7, 0);
+  // @todo
+//  Eigen::Vector4d quat_ref;
+//  Eigen::Vector4d quat_;
+//  quat_ref = x.block<4, 1>(3, 0);
+//  quat_ = x_.block<4, 1>(3, 0);
+  x_error_ = inv_cayley_map(quat_mult(quat_conj(x), x_));
+
+//  x_error_.block<6, 1>(6, 0) = x_.block<6, 1>(7, 0) - x.block<6, 1>(7, 0);
   return ErrorCodes::NoError;
 }
 
@@ -525,17 +540,20 @@ ErrorCodes KnotPointData::CalcErrorDynamicsExpansion() {
   // THIS FUNCTION MUST BE CALLED AFTER CalcDynamicsExpansion!!!
   if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOptAtTerminalKnotPoint;
 
+  // @todo
   E_.setZero();
-  E_.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
-  E_.block<4, 3>(3, 3) = G(x_ref.block<4, 1>(3, 0));
-  E_.block<3, 3>(7, 6) = Eigen::Matrix3d::Identity();
-  E_.block<3, 3>(10, 9) = Eigen::Matrix3d::Identity();
+//  E_.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
+//  E_.block<4, 3>(3, 3) = G(x_ref.block<4, 1>(3, 0));
+//  E_.block<3, 3>(7, 6) = Eigen::Matrix3d::Identity();
+//  E_.block<3, 3>(10, 9) = Eigen::Matrix3d::Identity();
+  E_ = G(x_ref);
 
   E_next_.setZero();
-  E_next_.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
-  E_next_.block<4, 3>(3, 3) = G(next_knot_point_->x_ref.block<4, 1>(3, 0));
-  E_next_.block<3, 3>(7, 6) = Eigen::Matrix3d::Identity();
-  E_next_.block<3, 3>(10, 9) = Eigen::Matrix3d::Identity();
+//  E_next_.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
+//  E_next_.block<4, 3>(3, 3) = G(next_knot_point_->x_ref.block<4, 1>(3, 0));
+//  E_next_.block<3, 3>(7, 6) = Eigen::Matrix3d::Identity();
+//  E_next_.block<3, 3>(10, 9) = Eigen::Matrix3d::Identity();
+  E_next_ = G(next_knot_point_->x_ref);
 
   error_A_ = E_next_.transpose() * A_ * E_; // A_ is computed in CalcDynamicsExpansion() using dynamics_jac_
   error_B_ = E_next_.transpose() * B_; // B_ is computed in CalcDynamicsExpansion() using dynamics_jac_
@@ -737,7 +755,6 @@ ErrorCodes KnotPointData::CalcConstraintCostHessians() {
   return ErrorCodes::NoError;
 }
 
-
 a_float KnotPointData::CalcOriginalCost() {
   a_float J = 0.0;
   int n = GetStateDim();
@@ -769,9 +786,8 @@ a_float KnotPointData::CalcOriginalCost() {
       break;
     }
     case CostFunType::Quaternion: {
-      J = 0.5 * x_.transpose() * Q_.head(n).asDiagonal() * x_;
-      J += q_.dot(x_);
-      J += w_ * (1 - abs(x_ref.segment<4>(3).transpose() * x_.segment<4>(3)));
+      J += w_ * (1 - abs(x_ref.transpose() * x_));
+
       if (!IsTerminalKnotPoint()) {
         J += 0.5 * u_.transpose() * R_.head(m).asDiagonal() * u_;
         J += r_.dot(u_);
@@ -815,14 +831,8 @@ void KnotPointData::CalcOriginalCostGradient() {
     }
     case CostFunType::Quaternion: {
       lx_.setZero();
-      lx_.head(3) = Q_.head(3).asDiagonal() * x_.head(3);      
-      lx_.tail(6) = Q_.segment<6>(7).asDiagonal() * x_.tail(6);
-
-      lx_.head(3) += q_.head(3);
-      lx_.tail(6) += q_.tail(6);
-
-      double tmp_var = x_ref.segment<4>(3).transpose() * x_.segment<4>(3);
-      lx_.segment<4>(3) = -w_ * sgn(tmp_var) * x_ref.segment<4>(3).transpose() * G(x_.segment<4>(3));
+      double tmp_var = x_ref.transpose() * x_;
+      lx_ = -w_ * sgn(tmp_var) * x_ref.transpose() * G(x_);
 
       if (!IsTerminalKnotPoint()) {
         lu_ = R_.head(m).asDiagonal() * u_;
@@ -859,11 +869,8 @@ void KnotPointData::CalcOriginalCostHessian() {
     }
     case CostFunType::Quaternion: {
       lxx_.setZero();
-      lxx_.block<3, 3>(0, 0) = Q_.head(3).asDiagonal();
-      lxx_.block<6, 6>(6, 6) = Q_.segment<6>(7).asDiagonal();
-
-      double tmp_var = x_ref.segment<4>(3).transpose() * x_.segment<4>(3);
-      lxx_.block<3, 3>(3, 3) = sgn(tmp_var) * x_ref.segment<4>(3).transpose() * x_.segment<4>(3) * Eigen::Matrix3d::Identity();
+      double tmp_var = x_ref.transpose() * x_;
+      lxx_ = sgn(tmp_var) * x_ref.transpose() * x_ * Eigen::Matrix3d::Identity();
 
       if (!IsTerminalKnotPoint()) {
         luu_ = R_.head(m).asDiagonal();

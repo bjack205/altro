@@ -17,7 +17,7 @@ class KnotPointData {
   enum class CostFunType { Generic, Quadratic, Diagonal, Quaternion };
 
  public:
-  bool use_quaternion = false;
+  bool use_quaternion = true; // @todo
 
   explicit KnotPointData(int index, bool is_terminal);
 
@@ -38,11 +38,8 @@ class KnotPointData {
                               const a_float *Hmat, const a_float *q, const a_float *r, a_float c);
   ErrorCodes SetDiagonalCost(int n, int m, const a_float *Qdiag, const a_float *Rdiag,
                              const a_float *q, const a_float *r, a_float c);
-  /**
-   * @todo implement SetQuaternionCost
-   */
   ErrorCodes SetQuaternionCost(int n, int m, const a_float *Qdiag, const a_float *Rdiag, const a_float w,
-                               const a_float *q, const a_float *r, a_float c);
+                               const a_float *q, const a_float *r, a_float c, int quat_start_index);
   ErrorCodes SetCostFunction(CostFunction cost_function, CostGradient cost_gradient,
                              CostHessian cost_hessian);
 
@@ -118,6 +115,7 @@ class KnotPointData {
   /////////////////////////////////////////////
 
   // General info
+  int quat_start_index_ = 0;
   int knot_point_index_ = -1;
   int num_next_state_ = 0;
   int num_states_ = 0;
@@ -133,10 +131,12 @@ class KnotPointData {
   CostHessian cost_hessian_;
 
   Vector Q_;
+  // Vector Q_reduced_;
   Vector R_;
   a_float w_;
   Matrix H_;
   Vector q_;
+  // Vector q_reduced_;
   Vector r_;
   a_float c_;
 
@@ -195,6 +195,7 @@ class KnotPointData {
 
   // All functions are calculated using these values
   Vector x_;  // temp state
+  // Vector x_reduced_; // temp reduced state
   Vector u_;  // temp input
   Vector y_;  // temp dynamics dual
 

@@ -2,7 +2,7 @@
 // Created by Brian Jackson on 9/12/22.
 // Copyright (c) 2022 Robotic Exploration Lab. All rights reserved.
 //
-
+#include <iostream>
 #include "altro_solver.hpp"
 
 #include "Eigen/Dense"
@@ -191,7 +191,7 @@ ErrorCodes ALTROSolver::SetLQRCost(int num_states, int num_inputs, const a_float
 
 ErrorCodes ALTROSolver::SetQuaternionCost(int num_states, int num_inputs,
                                           const a_float* Q_diag, const a_float* R_diag, const a_float w,
-                                          const a_float* x_ref, const a_float* u_ref,
+                                          const a_float* x_ref, const a_float* u_ref, int quat_start_index,
                                           int k_start, int k_stop) {
   ErrorCodes err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
   err = AssertDimensionsAreSet(k_start, k_stop, "Cannot set the cost function");
@@ -221,7 +221,7 @@ ErrorCodes ALTROSolver::SetQuaternionCost(int num_states, int num_inputs,
     if (k != N) {
       c += 0.5 * uref.transpose() * Rd.asDiagonal() * uref;
     }
-    solver_->data_[k].SetQuaternionCost(n, m, Q_diag, R_diag, w, q.data(), r.data(), c);
+    solver_->data_[k].SetQuaternionCost(n, m, Q_diag, R_diag, w, q.data(), r.data(), c, quat_start_index);
   }
   return ErrorCodes::NoError;
 }

@@ -229,7 +229,7 @@ class ALTROSolver {
    */
   ErrorCodes SetQuaternionCost(int num_states, int num_inputs,
                          const a_float* Q_diag, const a_float* R_diag, const a_float w,
-                         const a_float* x_ref, const a_float* u_ref,
+                         const a_float* x_ref, const a_float* u_ref, int quat_start_index,
                          int k_start, int k_stop = 0);
 
   /**

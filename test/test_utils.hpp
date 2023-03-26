@@ -10,6 +10,7 @@
 #include "Eigen/Dense"
 #include "altro/solver/typedefs.hpp"
 #include "altro/utils/formatting.hpp"
+#include "altro/utils/quaternion_utils.hpp"
 
 void discrete_double_integrator_dynamics(double *xnext, const double *x, const double *u, float h, int dim);
 
@@ -26,6 +27,9 @@ using ContinuousDynamicsJacobian = std::function<void(double *, const double *, 
 
 altro::ExplicitDynamicsFunction MidpointDynamics(int n, int m, ContinuousDynamicsFunction f);
 altro::ExplicitDynamicsJacobian MidpointJacobian(int n, int m, ContinuousDynamicsFunction f, ContinuousDynamicsJacobian jac);
+
+altro::ExplicitDynamicsFunction ForwardEulerDynamics(int n, int m, const ContinuousDynamicsFunction f);
+altro::ExplicitDynamicsJacobian ForwardEulerJacobian(int n, int m, const ContinuousDynamicsFunction f, const ContinuousDynamicsJacobian df);
 
 class BicycleModel {
  public:
@@ -50,13 +54,18 @@ class BicycleModel {
   double distance_to_rear_wheels_ = 1.5;
 };
 
-class QuadrupedModel {
+class SimpleQuaternionModel {
  public:
-  void srb_ct_dynamics(double *x_dot, const double *x, const double *u, Eigen::Matrix<double, 3, 4> foot_pos_body) const;
-  void srb_ct_jacobian(double *jac, const double *x, const double *u, Eigen::Matrix<double, 3, 4> foot_pos_body) const;
+  void Dynamics(double *x_dot, const double *x, const double *u) const;
+  void Jacobian(double *jac, const double *x, const double *u) const;
 
-  static constexpr int NumStates = 13;
-  static constexpr int NumInputs = 12;
+  static constexpr int NumStates = 4; // Quaternion: [qs, qa, qb, qc]
+  static constexpr int NumInputs = 3; // Angular Velocity: [omega_x, omgea_y, omega_z]
+
+  static constexpr int NumErrorStates = 3;
+  static constexpr int NumErrorInputs = 3;
 };
 
 void ReadScottyTrajectory(int *Nref, float *tref, std::vector<Eigen::Vector4d> *xref, std::vector<Eigen::Vector2d> *uref);
+
+Eigen::Vector4d Slerp(Eigen::Vector4d quat1, Eigen::Vector4d quat2, double t);

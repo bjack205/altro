@@ -1,7 +1,7 @@
 ---
 Language:        Cpp
 BasedOnStyle:  Google
-ColumnLimit:     100
+ColumnLimit:     210
 PointerAlignment: Right
 SeparateDefinitionBlocks: Always
 ---

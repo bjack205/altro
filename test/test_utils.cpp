@@ -5,18 +5,17 @@
 
 #include "test_utils.hpp"
 
-#include <vector>
-#include <string>
-#include <fstream>
 #include <filesystem>
+#include <fstream>
+#include <string>
+#include <vector>
 
 #include "nlohmann/json.hpp"
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
 
-void discrete_double_integrator_dynamics(double *xnext, const double *x, const double *u, float h,
-                                         int dim) {
+void discrete_double_integrator_dynamics(double *xnext, const double *x, const double *u, float h, int dim) {
   double b = h * h / 2;
   for (int i = 0; i < dim; ++i) {
     xnext[i] = x[i] + x[i + dim] * h + u[i] * b;
@@ -24,8 +23,7 @@ void discrete_double_integrator_dynamics(double *xnext, const double *x, const d
   }
 }
 
-void discrete_double_integrator_jacobian(double *jac, const double *x, const double *u, float h,
-                                         int dim) {
+void discrete_double_integrator_jacobian(double *jac, const double *x, const double *u, float h, int dim) {
   (void)x;
   (void)u;
   Eigen::Map<Eigen::MatrixXd> J(jac, 2 * dim, 3 * dim);
@@ -96,8 +94,7 @@ altro::ExplicitDynamicsFunction MidpointDynamics(int n, int m, ContinuousDynamic
   return fd;
 }
 
-altro::ExplicitDynamicsJacobian MidpointJacobian(int n, int m, ContinuousDynamicsFunction f,
-                                                 ContinuousDynamicsJacobian df) {
+altro::ExplicitDynamicsJacobian MidpointJacobian(int n, int m, ContinuousDynamicsFunction f, ContinuousDynamicsJacobian df) {
   auto fd = [n, m, f, df](double *jac, const double *x, const double *u, float h) {
     static Eigen::MatrixXd A(n, n);
     static Eigen::MatrixXd B(n, m);
@@ -127,6 +124,32 @@ altro::ExplicitDynamicsJacobian MidpointJacobian(int n, int m, ContinuousDynamic
     // Apply the chain rule
     J.leftCols(n) = In + h * Am * (In + h / 2 * A);
     J.rightCols(m) = h * (Am * h / 2 * B + Bm);
+  };
+  return fd;
+}
+
+altro::ExplicitDynamicsFunction ForwardEulerDynamics(int n, int m, const ContinuousDynamicsFunction f) {
+  auto fd = [n, m, f](double *xn, const double *x, const double *u, float h) {
+    Eigen::Map<Eigen::VectorXd> xn_vec(xn, n);
+    Eigen::Map<const Eigen::VectorXd> x_vec(x, n);
+    Eigen::Map<const Eigen::VectorXd> u_vec(u, n);
+    f(xn, x, u);  // xn is actually x_dot here
+    xn_vec = x_vec + h * xn_vec;
+  };
+  return fd;
+}
+
+altro::ExplicitDynamicsJacobian ForwardEulerJacobian(int n, int m, const ContinuousDynamicsFunction f, const ContinuousDynamicsJacobian df) {
+  auto fd = [n, m, f, df](double *jac, const double *x, const double *u, float h) {
+    Eigen::Map<Eigen::MatrixXd> J(jac, n, n + m);
+    Eigen::Map<const Eigen::VectorXd> x_vec(x, n);
+    Eigen::Map<const Eigen::VectorXd> u_vec(u, n);
+
+    static Eigen::MatrixXd In = Eigen::MatrixXd::Identity(n, n);
+
+    df(J.data(), x, u);
+    J.leftCols(n) = In + h * J.leftCols(n);
+    J.rightCols(m) = h * J.rightCols(m);
   };
   return fd;
 }
@@ -168,9 +191,9 @@ void BicycleModel::Dynamics(double *x_dot, const double *x, const double *u) con
 }
 
 void BicycleModel::Jacobian(double *jac, const double *x, const double *u) const {
-  double v = u[0];          // longitudinal velocity (m/s)
-  double theta = x[2];      // heading angle (rad) relative to x-axis
-  double delta = x[3];      // steering angle (rad)
+  double v = u[0];      // longitudinal velocity (m/s)
+  double theta = x[2];  // heading angle (rad) relative to x-axis
+  double delta = x[3];  // steering angle (rad)
 
   Eigen::Map<Eigen::Matrix<double, 4, 6>> J(jac);
   double beta = 0;
@@ -192,9 +215,7 @@ void BicycleModel::Jacobian(double *jac, const double *x, const double *u) const
       bx = length_;
       beta = std::atan2(by, bx);
       dbeta_ddelta = bx / (bx * bx + by * by) * distance_to_rear_wheels_;
-      domega_ddelta = v / length_ *
-                      (-std::sin(beta) * std::tan(delta) * dbeta_ddelta +
-                       std::cos(beta) / (std::cos(delta) * std::cos(delta)));
+      domega_ddelta = v / length_ * (-std::sin(beta) * std::tan(delta) * dbeta_ddelta + std::cos(beta) / (std::cos(delta) * std::cos(delta)));
       domega_dv = std::cos(beta) * std::tan(delta) / length_;
 
       stheta = std::sin(theta + beta);
@@ -226,20 +247,18 @@ void BicycleModel::Jacobian(double *jac, const double *x, const double *u) const
       break;
   };
   J.setZero();
-  J(0,2) = v * dc_dtheta;   // dxdot_dtheta
-  J(0,3) = v * dc_ddelta;   // dxdot_ddelta
-  J(0,4) = ctheta;          // dxdot_dv
-  J(1,2) = v * ds_dtheta;   // dydot_dtheta
-  J(1,3) = v * ds_ddelta;   // dydot_ddelta
-  J(1,4) = stheta;          // dydot_dv
-  J(2,3) = domega_ddelta;
-  J(2,4) = domega_dv;
-  J(3,5) = 1.0;
+  J(0, 2) = v * dc_dtheta;  // dxdot_dtheta
+  J(0, 3) = v * dc_ddelta;  // dxdot_ddelta
+  J(0, 4) = ctheta;         // dxdot_dv
+  J(1, 2) = v * ds_dtheta;  // dydot_dtheta
+  J(1, 3) = v * ds_ddelta;  // dydot_ddelta
+  J(1, 4) = stheta;         // dydot_dv
+  J(2, 3) = domega_ddelta;
+  J(2, 4) = domega_dv;
+  J(3, 5) = 1.0;
 }
 
-void ReadScottyTrajectory(int *Nref, float *tref, std::vector<Eigen::Vector4d> *xref,
-                          std::vector<Eigen::Vector2d> *uref) {
-
+void ReadScottyTrajectory(int *Nref, float *tref, std::vector<Eigen::Vector4d> *xref, std::vector<Eigen::Vector2d> *uref) {
   (void)Nref;
   (void)tref;
   (void)xref;
@@ -252,7 +271,7 @@ void ReadScottyTrajectory(int *Nref, float *tref, std::vector<Eigen::Vector4d> *
   std::ifstream f(scotty_file);
   json data = json::parse(f);
   auto it = data.find("N");
-  for (auto& el : data.items()) {
+  for (auto &el : data.items()) {
     if (el.key() == "N") {
       *Nref = el.value();
     }
@@ -263,7 +282,7 @@ void ReadScottyTrajectory(int *Nref, float *tref, std::vector<Eigen::Vector4d> *
       int Nx = el.value().size();
       Eigen::Vector4d x;
       for (int k = 0; k < Nx; ++k) {
-        json& x_json = el.value().at(k);
+        json &x_json = el.value().at(k);
         if (x_json.size() != n) fmt::print("Got incorrect input size!\n");
         for (int i = 0; i < n; ++i) {
           x[i] = x_json[i];
@@ -275,7 +294,7 @@ void ReadScottyTrajectory(int *Nref, float *tref, std::vector<Eigen::Vector4d> *
       int Nu = el.value().size();
       Eigen::Vector2d u;
       for (int k = 0; k < Nu; ++k) {
-        json& u_json = el.value().at(k);
+        json &u_json = el.value().at(k);
         if (u_json.size() != m) fmt::print("Got incorrect input size!\n");
         for (int i = 0; i < m; ++i) {
           u[i] = u_json[i];
@@ -288,10 +307,43 @@ void ReadScottyTrajectory(int *Nref, float *tref, std::vector<Eigen::Vector4d> *
   f.close();
 }
 
-void QuadrupedModel::srb_ct_dynamics(double *x_dot, const double *x, const double *u, Eigen::Matrix<double, 3, 4> foot_pos_body) const {
+void SimpleQuaternionModel::Dynamics(double *x_dot, const double *x, const double *u) const {
+  Eigen::Map<Eigen::VectorXd> x_dot_vec(x_dot, 4);
+  Eigen::Map<const Eigen::VectorXd> x_vec(x, 4);
+  Eigen::Map<const Eigen::VectorXd> u_vec(u, 3);
 
+  x_dot_vec = 0.5 * altro::G(x_vec) * u_vec;
 }
 
-void QuadrupedModel::srb_ct_jacobian(double *jac, const double *x, const double *u, Eigen::Matrix<double, 3, 4> foot_pos_body) const {
+void SimpleQuaternionModel::Jacobian(double *jac, const double *x, const double *u) const {
+  Eigen::Map<const Eigen::VectorXd> x_vec(x, 4);
+  Eigen::Map<const Eigen::VectorXd> u_vec(u, 3);
 
+  double qs = x_vec[0];
+  double qa = x_vec[1];
+  double qb = x_vec[2];
+  double qc = x_vec[3];
+
+  double wx = u_vec[0];
+  double wy = u_vec[1];
+  double wz = u_vec[2];
+
+  Eigen::Map<Eigen::Matrix<double, 4, 7>> J(jac);
+  J.setZero();
+  J << 0, -wx / 2, -wy / 2, -wz / 2, -qa / 2, -qb / 2, -qc / 2, wx / 2, 0, wz / 2, -wy / 2, qs / 2, -qc / 2, qb / 2, wy / 2, -wz / 2, 0, wx / 2, qc / 2, qs / 2, -qa / 2, wz / 2, wy / 2, -wx / 2, 0, -qb / 2,
+      qa / 2, qs / 2;
+}
+
+Eigen::Vector4d Slerp(Eigen::Vector4d q1, Eigen::Vector4d q2, double t) {
+  if (q1 == q2) {
+    return q1;
+  } else {
+    double dot = q1.dot(q2);
+    double theta = acos(dot);
+    double sinTheta = sin(theta);
+    double a = sin((1 - t) * theta) / sinTheta;
+    double b = sin(t * theta) / sinTheta;
+
+    return a * q1 + b * q2;
+  }
 }
