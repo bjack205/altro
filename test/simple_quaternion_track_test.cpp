@@ -11,6 +11,7 @@
 #include "altro/altro_solver.hpp"
 #include "altro/solver/solver.hpp"
 #include "altro/utils/formatting.hpp"
+#include "altro/utils/quaternion_utils.hpp"
 #include "fmt/chrono.h"
 #include "fmt/core.h"
 #include "gtest/gtest.h"
@@ -23,6 +24,36 @@ namespace fs = std::filesystem;
 using json = nlohmann::json;
 
 using namespace altro;
+
+TEST(SimpleQuaternionTrackTest, EigenRemove) {
+  Vector vec_A;
+  Vector vec_A_1;
+  Vector vec_A_2;
+  Vector vec_A_3;
+
+  vec_A = Vector::Zero(5);
+  vec_A << 1, 2, 3, 4, 5;
+  std::cout << "vec_A = " << vec_A.transpose() << std::endl;
+
+  vec_A_1 = removeElement(vec_A, 4);
+  std::cout << "Remove the element at idx = 4, vec_A = " << vec_A_1.transpose() << std::endl;
+  EXPECT_LT(vec_A[0] - 1, 1e-5);
+  EXPECT_LT(vec_A[1] - 2, 1e-5);
+  EXPECT_LT(vec_A[2] - 3, 1e-5);
+  EXPECT_LT(vec_A[3] - 4, 1e-5);
+
+  vec_A_2 = removeElement(vec_A_1, 0);
+  std::cout << "Remove the element at idx = 0, vec_A = " << vec_A_2.transpose() << std::endl;
+  EXPECT_LT(vec_A[0] - 2, 1e-5);
+  EXPECT_LT(vec_A[1] - 3, 1e-5);
+  EXPECT_LT(vec_A[2] - 4, 1e-5);
+
+  vec_A_3 = removeElement(vec_A_2, 1);
+  std::cout << "Remove the element at idx = 1, vec_A = " << vec_A_3.transpose() << std::endl;
+  EXPECT_LT(vec_A[0] - 2, 1e-5);
+  EXPECT_LT(vec_A[1] - 4, 1e-5);
+
+}
 
 TEST(SimpleQuaternionTrackTest, Dynamics) {
   SimpleQuaternionModel model;
@@ -43,7 +74,8 @@ TEST(SimpleQuaternionTrackTest, Dynamics) {
   // Continuous Jacobian
   MatrixXd J(n, n + m);
   MatrixXd J_expected(n, n + m);
-  J_expected << 0, -0.2, -0.25, -0.3, 0, 0, 0, 0.2, 0, 0.3, -0.25, 0.5, 0, 0, 0.25, -0.3, 0, 0.2, 0, 0.5, 0, 0.3, 0.25, -0.2, 0, 0, 0, 0.5, model.Jacobian(J.data(), x.data(), u.data());
+  J_expected << 0, -0.2, -0.25, -0.3, 0, 0, 0, 0.2, 0, 0.3, -0.25, 0.5, 0, 0, 0.25, -0.3, 0, 0.2, 0,
+      0.5, 0, 0.3, 0.25, -0.2, 0, 0, 0, 0.5, model.Jacobian(J.data(), x.data(), u.data());
   EXPECT_LT((J - J_expected).norm(), 1e-6);
 }
 
@@ -75,11 +107,12 @@ TEST(SimpleQuaternionTrackTest, SLERP) {
 }
 
 TEST(SimpleQuaternionTrackTest, MPC) {
+  auto t_start = std::chrono::high_resolution_clock::now();
   const int n = SimpleQuaternionModel::NumStates;
   const int en = SimpleQuaternionModel::NumErrorStates;
   const int m = SimpleQuaternionModel::NumInputs;
   const int em = SimpleQuaternionModel::NumErrorInputs;
-  const int N = 60;
+  const int N = 100;
   const double h = 0.01;
   ALTROSolver solver(N);
 
@@ -89,8 +122,9 @@ TEST(SimpleQuaternionTrackTest, MPC) {
   Eigen::Vector3d u_ref;
 
   x_start << 1, 0, 0, 0;
-  x_target << 0.7071068, 0.7071068, 0, 0;  // rotate PI/2 around x axis in N*h seconds
-  u_ref << (M_PI / 2) / (N * h) - 1, 0, 0;
+  x_target << 0.9659258, 0.0691723, 0.1383446,
+      0.2075169;  // rotate PI/6 around [0.2672612, 0.5345225, 0.8017837] in N*h seconds
+  u_ref << 0.1399377 / (N * h) + 0.2, 0.2798753 / (N * h) - 0.1, 0.419813 / (N * h) + 0.15;
 
   std::vector<Eigen::Vector4d> X_ref;
   std::vector<Eigen::Vector3d> U_ref;
@@ -111,13 +145,33 @@ TEST(SimpleQuaternionTrackTest, MPC) {
 
   /// DYNAMICS ///
   auto model_ptr = std::make_shared<SimpleQuaternionModel>();
-  ContinuousDynamicsFunction ct_dyn = [model_ptr](double *x_dot, const double *x, const double *u) { model_ptr->Dynamics(x_dot, x, u); };
-  ContinuousDynamicsJacobian ct_jac = [model_ptr](double *jac, const double *x, const double *u) { model_ptr->Jacobian(jac, x, u); };
+  ContinuousDynamicsFunction ct_dyn = [model_ptr](double *x_dot, const double *x, const double *u) {
+    model_ptr->Dynamics(x_dot, x, u);
+  };
+  ContinuousDynamicsJacobian ct_jac = [model_ptr](double *jac, const double *x, const double *u) {
+    model_ptr->Jacobian(jac, x, u);
+  };
   ExplicitDynamicsFunction dt_dyn = ForwardEulerDynamics(n, m, ct_dyn);
   ExplicitDynamicsJacobian dt_jac = ForwardEulerJacobian(n, m, ct_dyn, ct_jac);
 
   /// CONSTRAINTS ///
-  // No constraints
+  //  double omega_max = 0.3;
+  //  auto upper_bound_con = [omega_max](a_float *c, const a_float *x, const a_float *u) {
+  //    (void)x;
+  //    c[0] = u[0] - omega_max;
+  //    c[1] = u[1] - omega_max;
+  //    c[2] = u[2] - omega_max;
+  //  };
+  //
+  //  auto upper_bound_jac = [](a_float *jac, const a_float *x, const a_float *u) {
+  //    (void)x;
+  //    (void)u;
+  //    Eigen::Map<Eigen::Matrix<a_float, 3, n + m>> J(jac);
+  //    J.setZero();
+  //    J(0, 4) = 1;
+  //    J(1, 5) = 1;
+  //    J(2, 6) = 1;
+  //  };
 
   /// SETUP ///
   solver.SetDimension(n, m);
@@ -127,10 +181,12 @@ TEST(SimpleQuaternionTrackTest, MPC) {
 
   // Cost function
   for (int i = 0; i <= N; i++) {
-    solver.SetQuaternionCost(n, m, Qd.data(), Rd.data(), w, X_ref.at(i).data(), U_ref.at(i).data(), 0, i); // some bug here
-//    solver.SetLQRCost(n, m, Qd.data(), Rd.data(), X_ref.at(i).data(), U_ref.at(i).data(), i);
+    solver.SetQuaternionCost(n, m, Qd.data(), Rd.data(), w, X_ref.at(i).data(), U_ref.at(i).data(),
+                             0, i);
   }
 
+  //  solver.SetConstraint(upper_bound_con, upper_bound_jac, 3, ConstraintType::INEQUALITY,
+  //                       "upper bound", 0, N + 1);
   solver.SetInitialState(x_start.data(), n);
   solver.Initialize();
 
@@ -150,21 +206,26 @@ TEST(SimpleQuaternionTrackTest, MPC) {
   opts.iterations_max = 80;
   opts.use_backtracking_linesearch = true;
   opts.use_quaternion = true;
+  //  opts.quat_state_index = 0;
   solver.SetOptions(opts);
 
   solver.Solve();
+  auto t_end = std::chrono::high_resolution_clock::now();
+  using SecondsDouble = std::chrono::duration<double, std::ratio<1>>;
+  SecondsDouble t_total = std::chrono::duration_cast<SecondsDouble>(t_end - t_start);
+  fmt::print("Total time = {} ms\n", t_total * 1000);
 
   /// SAVE ///
-  std::vector<Vector> x_sim;
-  std::vector<Vector> u_sim;
+  std::vector<Vector> X_sim;
+  std::vector<Vector> U_sim;
 
   for (int k = 0; k < N; k++) {
     Eigen::VectorXd x(n);
     Eigen::VectorXd u(m);
     solver.GetState(x.data(), k);
     solver.GetInput(u.data(), k);
-    x_sim.emplace_back(x);
-    u_sim.emplace_back(u);
+    X_sim.emplace_back(x);
+    U_sim.emplace_back(u);
   }
 
   // Save trajectory to JSON file
@@ -172,15 +233,21 @@ TEST(SimpleQuaternionTrackTest, MPC) {
   std::ofstream traj_out(out_file);
   json X_ref_data(X_ref);
   json U_ref_data(U_ref);
-  json x_data(x_sim);
-  json u_data(u_sim);
+  json X_data(X_sim);
+  json U_data(U_sim);
   json data;
   data["reference_state"] = X_ref_data;
   data["reference_input"] = U_ref_data;
-  data["state_trajectory"] = x_data;
-  data["input_trajectory"] = u_data;
+  data["state_trajectory"] = X_data;
+  data["input_trajectory"] = U_data;
   traj_out << std::setw(4) << data;
 
-  double a = 0;
-  EXPECT_LT(a, 1e-5);
+  // Calculate tracking error
+  double tracking_err = 0;
+  for (int i = 0; i < N; i++) {
+    tracking_err =
+        tracking_err + (X_sim.at(i) - X_ref.at(i)).transpose() * (X_sim.at(i) - X_ref.at(i));
+  }
+
+  EXPECT_LT(tracking_err, 1e-4);
 }
