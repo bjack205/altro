@@ -17,16 +17,16 @@ class KnotPointData {
   enum class CostFunType { Generic, Quadratic, Diagonal, Quaternion };
 
  public:
-  bool use_quaternion = true; // @todo
+  bool use_quaternion = false;
 
   explicit KnotPointData(int index, bool is_terminal);
 
   // Prohibit copying
-  KnotPointData(const KnotPointData& data) = delete;
-  KnotPointData operator=(const KnotPointData& data) = delete;
+  KnotPointData(const KnotPointData &data) = delete;
+  KnotPointData operator=(const KnotPointData &data) = delete;
 
   // Allow moving
-  KnotPointData(KnotPointData&& other) = default;
+  KnotPointData(KnotPointData &&other) = default;
 
   // Setters
   ErrorCodes SetDimension(int num_states, int num_inputs);
@@ -38,8 +38,9 @@ class KnotPointData {
                               const a_float *Hmat, const a_float *q, const a_float *r, a_float c);
   ErrorCodes SetDiagonalCost(int n, int m, const a_float *Qdiag, const a_float *Rdiag,
                              const a_float *q, const a_float *r, a_float c);
-  ErrorCodes SetQuaternionCost(int n, int m, const a_float *Qdiag, const a_float *Rdiag, const a_float w,
-                               const a_float *q, const a_float *r, a_float c, int quat_start_index);
+  ErrorCodes SetQuaternionCost(int n, int m, int quat_start_index, const a_float *Qdiag,
+                               const a_float *Rdiag, a_float w, const a_float *q, const a_float *r,
+                               a_float c);
   ErrorCodes SetCostFunction(CostFunction cost_function, CostGradient cost_gradient,
                              CostHessian cost_hessian);
 
@@ -131,12 +132,12 @@ class KnotPointData {
   CostHessian cost_hessian_;
 
   Vector Q_;
-  // Vector Q_reduced_;
+  Vector Q_reduced_;  // used for quaternion tricks
   Vector R_;
   a_float w_;
   Matrix H_;
   Vector q_;
-  // Vector q_reduced_;
+  Vector q_reduced_;  // used for quaternion tricks
   Vector r_;
   a_float c_;
 
@@ -199,7 +200,7 @@ class KnotPointData {
   Vector u_;  // temp input
   Vector y_;  // temp dynamics dual
 
-  Vector x_error_; // temp error state
+  Vector x_error_;  // temp error state
 
   Matrix dynamics_jac_;
   Vector dynamics_val_;
@@ -265,8 +266,8 @@ class KnotPointData {
   a_float delta_V_[2];
 
   // Forward pass
-  Vector dx_da_;   // gradient of x wrt alpha
-  Vector du_da_;   // gradient of u wrt alpha
+  Vector dx_da_;  // gradient of x wrt alpha
+  Vector du_da_;  // gradient of u wrt alpha
 
  private:
   a_float CalcOriginalCost();

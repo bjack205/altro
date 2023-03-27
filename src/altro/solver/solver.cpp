@@ -3,9 +3,9 @@
 // Copyright (c) 2022 Robotic Exploration Lab. All rights reserved.
 //
 
-#include <iostream>
-
 #include "solver.hpp"
+
+#include <iostream>
 
 #include "altro/utils/formatting.hpp"
 #include "tvlqr/tvlqr.h"
@@ -48,7 +48,6 @@ SolverImpl::SolverImpl(int N)
       Qux_tmp_(N, nullptr),
       Qx_tmp_(N + 1, nullptr),
       Qu_tmp_(N, nullptr) {
-
   // Initialize knot point data
   for (int k = 0; k <= N; ++k) {
     bool is_terminal = (k == N);
@@ -126,7 +125,6 @@ ErrorCodes SolverImpl::Initialize() {
   return ErrorCodes::NoError;
 }
 
-
 /////////////////////////////////////////////
 // Rollouts
 /////////////////////////////////////////////
@@ -182,7 +180,8 @@ ErrorCodes SolverImpl::CopyTrajectory() {
 
 a_float SolverImpl::CalcCost() {
   a_float cost = 0.0;
-//  if (constraint_vals_up_to_date_) fmt::print("    Constraints already up-to-date (CalcCost)\n");
+  //  if (constraint_vals_up_to_date_) fmt::print("    Constraints already up-to-date
+  //  (CalcCost)\n");
   for (int k = 0; k <= horizon_length_; ++k) {
     data_[k].CalcConstraints();
     a_float cost_k = data_[k].CalcCost();
@@ -232,11 +231,14 @@ a_float SolverImpl::Stationarity() {
   for (int k = 0; k < N; ++k) {
     KnotPointData& z = data_[k];
     KnotPointData& zn = data_[k + 1];
-    // @todo
-//    res_x = std::max(res_x, (z.lx_ + z.A_.transpose() * zn.y_ - z.y_).lpNorm<Eigen::Infinity>());
-//    res_u = std::max(res_u, (z.lu_ + z.B_.transpose() * zn.y_).lpNorm<Eigen::Infinity>());
-    res_x = std::max(res_x, (z.lx_ + z.error_A_.transpose() * zn.y_ - z.y_).lpNorm<Eigen::Infinity>());
-    res_u = std::max(res_u, (z.lu_ + z.error_B_.transpose() * zn.y_).lpNorm<Eigen::Infinity>());
+    if (opts.use_quaternion) {
+      res_x = std::max(res_x,
+                       (z.lx_ + z.error_A_.transpose() * zn.y_ - z.y_).lpNorm<Eigen::Infinity>());
+      res_u = std::max(res_u, (z.lu_ + z.error_B_.transpose() * zn.y_).lpNorm<Eigen::Infinity>());
+    } else {
+      res_x = std::max(res_x, (z.lx_ + z.A_.transpose() * zn.y_ - z.y_).lpNorm<Eigen::Infinity>());
+      res_u = std::max(res_u, (z.lu_ + z.B_.transpose() * zn.y_).lpNorm<Eigen::Infinity>());
+    }
   }
   KnotPointData& z = data_[N];
   res_x = std::max(res_x, (z.lx_ - z.y_).lpNorm<Eigen::Infinity>());
@@ -335,11 +337,14 @@ ErrorCodes SolverImpl::MeritFunction(a_float alpha, a_float* phi, a_float* dphi)
     if (calc_derivative) {
       // Calculate gradient of x and u with respect to alpha
       knot_point.CalcDynamicsExpansion();
-      // @todo
       knot_point.du_da_ = -knot_point.K_ * knot_point.dx_da_ + knot_point.d_;
-//      next_knot_point.dx_da_ = knot_point.A_ * knot_point.dx_da_ + knot_point.B_ * knot_point.du_da_;
-      next_knot_point.dx_da_ = knot_point.error_A_ * knot_point.dx_da_ + knot_point.error_B_ * knot_point.du_da_;
-
+      if (opts.use_quaternion) {
+        next_knot_point.dx_da_ =
+            knot_point.error_A_ * knot_point.dx_da_ + knot_point.error_B_ * knot_point.du_da_;
+      } else {
+        next_knot_point.dx_da_ =
+            knot_point.A_ * knot_point.dx_da_ + knot_point.B_ * knot_point.du_da_;
+      }
       // Calculate the gradient of the cost with respect to alpha
       knot_point.CalcConstraintJacobians();
       knot_point.CalcCostGradient();
@@ -408,13 +413,12 @@ ErrorCodes SolverImpl::BackwardPass() {
   bool is_diag = false;
   int res = 0;
   if (opts.use_quaternion) {
-    res = tvlqr_BackwardPass(nx_error_.data(), nu_error_.data(), N,
-                             error_A_.data(), error_B_.data(), f_.data(),
-                             lxx_.data(), luu_.data(), lux_.data(), lx_.data(), lu_.data(), reg,
-                             K_.data(), d_.data(), P_.data(), p_.data(), delta_V_, Qxx_.data(),
-                             Quu_.data(), Qux_.data(), Qx_.data(), Qu_.data(), Qxx_tmp_.data(),
-                             Quu_tmp_.data(), Qux_tmp_.data(), Qx_tmp_.data(), Qu_tmp_.data(),
-                             linear_only_update, is_diag);
+    res = tvlqr_BackwardPass(nx_error_.data(), nu_error_.data(), N, error_A_.data(),
+                             error_B_.data(), f_.data(), lxx_.data(), luu_.data(), lux_.data(),
+                             lx_.data(), lu_.data(), reg, K_.data(), d_.data(), P_.data(),
+                             p_.data(), delta_V_, Qxx_.data(), Quu_.data(), Qux_.data(), Qx_.data(),
+                             Qu_.data(), Qxx_tmp_.data(), Quu_tmp_.data(), Qux_tmp_.data(),
+                             Qx_tmp_.data(), Qu_tmp_.data(), linear_only_update, is_diag);
   } else {
     res = tvlqr_BackwardPass(nx_.data(), nu_.data(), N, A_.data(), B_.data(), f_.data(),
                              lxx_.data(), luu_.data(), lux_.data(), lx_.data(), lu_.data(), reg,
@@ -478,9 +482,9 @@ ErrorCodes SolverImpl::Solve() {
   CopyTrajectory();  // make the rolled out trajectory the reference trajectory
   double cost_initial = CalcCost();
   for (int k = 0; k <= horizon_length_; ++k) {
-    data_[k].CalcDynamicsExpansion();      // Calculate A_ and B_
+    data_[k].CalcDynamicsExpansion();  // Calculate A_ and B_
     if (opts.use_quaternion) {
-      data_[k].CalcErrorDynamicsExpansion(); // Calculate error_A_ and error_B_
+      data_[k].CalcErrorDynamicsExpansion();  // Calculate error_A_ and error_B_
     }
     data_[k].CalcConstraintJacobians();
     data_[k].CalcCostGradient();
@@ -524,7 +528,6 @@ ErrorCodes SolverImpl::Solve() {
     if (std::abs(stationarity) < opts.tol_stationarity &&
         feasibility < opts.tol_primal_feasibility) {
       is_converged = true;
-      std::cout << "Converged" << std::endl;
       stop_iterating = true;
       stats.status = SolveStatus::Success;
     }
@@ -552,7 +555,8 @@ ErrorCodes SolverImpl::Solve() {
     // Print log
     if (opts.verbose > Verbosity::Silent) {
       fmt::print(
-          "  iter = {:3d}, phi = {:8.4g} -> {:8.4g} ({:10.3g}), dphi = {:10.3g} -> {:10.3g}, alpha = "
+          "  iter = {:3d}, phi = {:8.4g} -> {:8.4g} ({:10.3g}), dphi = {:10.3g} -> {:10.3g}, alpha "
+          "= "
           "{:8.3g}, ls_iter = {:2d}, stat = {:8.3e}, feas = {:8.3e}, rho = {:7.2g}, dual update? "
           "{}\n",
           iter, phi0_, phi_, cost_decrease, dphi0_, dphi_, alpha, ls_iters_, stationarity,

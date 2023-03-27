@@ -2,8 +2,9 @@
 // Created by Brian Jackson on 9/12/22.
 // Copyright (c) 2022 Robotic Exploration Lab. All rights reserved.
 //
-#include <iostream>
 #include "altro_solver.hpp"
+
+#include <iostream>
 
 #include "Eigen/Dense"
 #include "altro/solver/internal_types.hpp"
@@ -46,8 +47,8 @@ ErrorCodes ALTROSolver::SetDimension(int num_states, int num_inputs, int k_start
   return ErrorCodes::NoError;
 }
 
-ErrorCodes ALTROSolver::SetErrorDimension(int num_error_states, int num_error_inputs,
-                                          int k_start, int k_stop) {
+ErrorCodes ALTROSolver::SetErrorDimension(int num_error_states, int num_error_inputs, int k_start,
+                                          int k_stop) {
   if (IsInitialized()) {
     return ALTRO_THROW("Cannot change the error dimension once the solver has been initialized.",
                        ErrorCodes::SolverAlreadyInitialized);
@@ -189,10 +190,9 @@ ErrorCodes ALTROSolver::SetLQRCost(int num_states, int num_inputs, const a_float
   return ErrorCodes::NoError;
 }
 
-ErrorCodes ALTROSolver::SetQuaternionCost(int num_states, int num_inputs,
-                                          const a_float* Q_diag, const a_float* R_diag, const a_float w,
-                                          const a_float* x_ref, const a_float* u_ref, int quat_start_index,
-                                          int k_start, int k_stop) {
+ErrorCodes ALTROSolver::SetQuaternionCost(int num_states, int num_inputs, const a_float *Q_diag,
+                                          const a_float *R_diag, a_float w, const a_float *x_ref,
+                                          const a_float *u_ref, int k_start, int k_stop) {
   ErrorCodes err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
   err = AssertDimensionsAreSet(k_start, k_stop, "Cannot set the cost function");
   if (err != ErrorCodes::NoError) return err;
@@ -221,7 +221,9 @@ ErrorCodes ALTROSolver::SetQuaternionCost(int num_states, int num_inputs,
     if (k != N) {
       c += 0.5 * uref.transpose() * Rd.asDiagonal() * uref;
     }
-    solver_->data_[k].SetQuaternionCost(n, m, Q_diag, R_diag, w, q.data(), r.data(), c, quat_start_index);
+    solver_->data_[k].use_quaternion = true;
+    solver_->data_[k].SetQuaternionCost(n, m, solver_->opts.quat_start_index, Q_diag, R_diag, w,
+                                        q.data(), r.data(), c);
   }
   return ErrorCodes::NoError;
 }

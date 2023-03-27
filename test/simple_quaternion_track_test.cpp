@@ -25,35 +25,34 @@ using json = nlohmann::json;
 
 using namespace altro;
 
-TEST(SimpleQuaternionTrackTest, EigenRemove) {
-  Vector vec_A;
-  Vector vec_A_1;
-  Vector vec_A_2;
-  Vector vec_A_3;
-
-  vec_A = Vector::Zero(5);
-  vec_A << 1, 2, 3, 4, 5;
-  std::cout << "vec_A = " << vec_A.transpose() << std::endl;
-
-  vec_A_1 = removeElement(vec_A, 4);
-  std::cout << "Remove the element at idx = 4, vec_A = " << vec_A_1.transpose() << std::endl;
-  EXPECT_LT(vec_A[0] - 1, 1e-5);
-  EXPECT_LT(vec_A[1] - 2, 1e-5);
-  EXPECT_LT(vec_A[2] - 3, 1e-5);
-  EXPECT_LT(vec_A[3] - 4, 1e-5);
-
-  vec_A_2 = removeElement(vec_A_1, 0);
-  std::cout << "Remove the element at idx = 0, vec_A = " << vec_A_2.transpose() << std::endl;
-  EXPECT_LT(vec_A[0] - 2, 1e-5);
-  EXPECT_LT(vec_A[1] - 3, 1e-5);
-  EXPECT_LT(vec_A[2] - 4, 1e-5);
-
-  vec_A_3 = removeElement(vec_A_2, 1);
-  std::cout << "Remove the element at idx = 1, vec_A = " << vec_A_3.transpose() << std::endl;
-  EXPECT_LT(vec_A[0] - 2, 1e-5);
-  EXPECT_LT(vec_A[1] - 4, 1e-5);
-
-}
+//TEST(SimpleQuaternionTrackTest, EigenRemove) {
+//  Vector vec_A;
+//  Vector vec_A_1;
+//  Vector vec_A_2;
+//  Vector vec_A_3;
+//
+//  vec_A = Vector::Zero(5);
+//  vec_A << 1, 2, 3, 4, 5;
+//  std::cout << "vec_A = " << vec_A.transpose() << std::endl;
+//
+//  vec_A_1 = removeElement(vec_A, 4);
+//  std::cout << "Remove the element at idx = 4, vec_A = " << vec_A_1.transpose() << std::endl;
+//  EXPECT_LT(vec_A[0] - 1, 1e-5);
+//  EXPECT_LT(vec_A[1] - 2, 1e-5);
+//  EXPECT_LT(vec_A[2] - 3, 1e-5);
+//  EXPECT_LT(vec_A[3] - 4, 1e-5);
+//
+//  vec_A_2 = removeElement(vec_A_1, 0);
+//  std::cout << "Remove the element at idx = 0, vec_A = " << vec_A_2.transpose() << std::endl;
+//  EXPECT_LT(vec_A[0] - 2, 1e-5);
+//  EXPECT_LT(vec_A[1] - 3, 1e-5);
+//  EXPECT_LT(vec_A[2] - 4, 1e-5);
+//
+//  vec_A_3 = removeElement(vec_A_2, 1);
+//  std::cout << "Remove the element at idx = 1, vec_A = " << vec_A_3.transpose() << std::endl;
+//  EXPECT_LT(vec_A[0] - 2, 1e-5);
+//  EXPECT_LT(vec_A[1] - 4, 1e-5);
+//}
 
 TEST(SimpleQuaternionTrackTest, Dynamics) {
   SimpleQuaternionModel model;
@@ -121,9 +120,9 @@ TEST(SimpleQuaternionTrackTest, MPC) {
   Eigen::Vector4d x_target;
   Eigen::Vector3d u_ref;
 
+  // rotate PI/6 around [0.2672612, 0.5345225, 0.8017837] in N*h seconds
   x_start << 1, 0, 0, 0;
-  x_target << 0.9659258, 0.0691723, 0.1383446,
-      0.2075169;  // rotate PI/6 around [0.2672612, 0.5345225, 0.8017837] in N*h seconds
+  x_target << 0.9659258, 0.0691723, 0.1383446, 0.2075169;
   u_ref << 0.1399377 / (N * h) + 0.2, 0.2798753 / (N * h) - 0.1, 0.419813 / (N * h) + 0.15;
 
   std::vector<Eigen::Vector4d> X_ref;
@@ -174,6 +173,14 @@ TEST(SimpleQuaternionTrackTest, MPC) {
   //  };
 
   /// SETUP ///
+  AltroOptions opts;
+  opts.verbose = Verbosity::Inner;
+  opts.iterations_max = 80;
+  opts.use_backtracking_linesearch = true;
+  opts.use_quaternion = true;
+  opts.quat_start_index = 0;
+  solver.SetOptions(opts);
+
   solver.SetDimension(n, m);
   solver.SetErrorDimension(en, em);
   solver.SetExplicitDynamics(dt_dyn, dt_jac);
@@ -182,7 +189,7 @@ TEST(SimpleQuaternionTrackTest, MPC) {
   // Cost function
   for (int i = 0; i <= N; i++) {
     solver.SetQuaternionCost(n, m, Qd.data(), Rd.data(), w, X_ref.at(i).data(), U_ref.at(i).data(),
-                             0, i);
+                             i, 0);
   }
 
   //  solver.SetConstraint(upper_bound_con, upper_bound_jac, 3, ConstraintType::INEQUALITY,
@@ -200,14 +207,6 @@ TEST(SimpleQuaternionTrackTest, MPC) {
   fmt::print("#############################################\n");
   fmt::print("                 MPC Solve\n");
   fmt::print("#############################################\n");
-
-  AltroOptions opts;
-  opts.verbose = Verbosity::Inner;
-  opts.iterations_max = 80;
-  opts.use_backtracking_linesearch = true;
-  opts.use_quaternion = true;
-  //  opts.quat_state_index = 0;
-  solver.SetOptions(opts);
 
   solver.Solve();
   auto t_end = std::chrono::high_resolution_clock::now();

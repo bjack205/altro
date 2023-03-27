@@ -46,9 +46,9 @@ class ALTROSolver {
    */
   ErrorCodes SetDimension(int num_states, int num_inputs, int k_start = AllIndices, int k_stop = 0);
 
-  ErrorCodes SetErrorDimension(int num_error_states, int num_error_inputs,
-                               int k_start = AllIndices, int k_stop = 0);
-                               
+  ErrorCodes SetErrorDimension(int num_error_states, int num_error_inputs, int k_start = AllIndices,
+                               int k_stop = 0);
+
   /**
    * @brief Set the time step between knot point index `k` and `k + 1`.
    * @param h Time step
@@ -219,18 +219,18 @@ class ALTROSolver {
   ErrorCodes SetLQRCost(int num_states, int num_inputs, const a_float* Q_diag,
                         const a_float* R_diag, const a_float* x_ref, const a_float* u_ref,
                         int k_start, int k_stop = 0);
-  
+
   /**
    * @brief Set a cost function with quaternions
    *
-   * 1/2 * (x - x_ref)' * Q * (x - x_ref) + 1/2 * (u - u_ref)' * R * (u - u_ref) + w * (1 - |q_ref' * q|)
-   * 
-   * @todo Implement this
+   * 1/2 * (x - x_ref)' * Q * (x - x_ref) + 1/2 * (u - u_ref)' * R * (u - u_ref) + w * (1 - |q_ref'
+   * * q|)
+   *
+   * @todo Complete doc
    */
-  ErrorCodes SetQuaternionCost(int num_states, int num_inputs,
-                         const a_float* Q_diag, const a_float* R_diag, const a_float w,
-                         const a_float* x_ref, const a_float* u_ref, int quat_start_index,
-                         int k_start, int k_stop = 0);
+  ErrorCodes SetQuaternionCost(int num_states, int num_inputs, const a_float* Q_diag,
+                               const a_float* R_diag, a_float w, const a_float* x_ref,
+                               const a_float* u_ref, int k_start, int k_stop = 0);
 
   /**
    * @brief Set constraint function at a knot point (or range of knot points)

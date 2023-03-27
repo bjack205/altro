@@ -2,8 +2,9 @@
 // Created by Brian Jackson on 9/12/22.
 // Copyright (c) 2022 Robotic Exploration Lab. All rights reserved.
 //
-#include <iostream>
 #include "knotpoint_data.hpp"
+
+#include <iostream>
 
 #include "altro/utils/formatting.hpp"
 #include "altro/utils/quaternion_utils.hpp"
@@ -132,32 +133,22 @@ ErrorCodes KnotPointData::SetDiagonalCost(int n, int m, const a_float *Qdiag, co
   return ErrorCodes::NoError;
 }
 
-ErrorCodes KnotPointData::SetQuaternionCost(int n, int m,
-                                            const a_float *Qdiag, const a_float *Rdiag, const a_float w,
-                                            const a_float *q, const a_float *r, a_float c, int quat_start_index) {
+ErrorCodes KnotPointData::SetQuaternionCost(int n, int m, int quat_start_index,
+                                            const a_float *Qdiag, const a_float *Rdiag, a_float w,
+                                            const a_float *q, const a_float *r, a_float c) {
   if (num_states_ > 0 && num_states_ != n) return ErrorCodes::DimensionMismatch;
   if (num_inputs_ > 0 && num_inputs_ != m) return ErrorCodes::DimensionMismatch;
 
   Q_ = Vector::Zero(n * n);
   Q_.head(n) = Eigen::Map<const Vector>(Qdiag, n);
+  Q_reduced_ = removeElement(Q_, quat_start_index);
 
   H_ = Matrix::Zero(m, n);
   q_ = Eigen::Map<const Vector>(q, n);
+  q_reduced_ = removeElement(q_, quat_start_index);
   c_ = c;
   w_ = w;
   quat_start_index_ = quat_start_index;
-
-  // Q_reduced_ = Vector::Zero((n - 1) * (n - 1));
-  // // std::cout << "Q_reduced_ = " << std::endl << Q_reduced_ << std::endl;
-  // Q_reduced_.head(quat_start_index_ + 3) = Q_.head(quat_start_index_ + 3);
-  // Q_reduced_.segment(n - quat_start_index_ - 4, quat_start_index_ + 3) = Q_.segment(n - quat_start_index_ - 4, quat_start_index_ + 4);
-  // // std::cout << "Q_reduced_ = " << std::endl << Q_reduced_ << std::endl;
-
-  // q_reduced_ = Vector::Zero(n - 1);
-  // // std::cout << "q_reduced_ = " << std::endl << q_reduced_ << std::endl;
-  // q_reduced_.head(quat_start_index_ + 3) = q_.head(quat_start_index_ + 3);
-  // q_reduced_.segment(n - quat_start_index_ - 4, quat_start_index_ + 3) = q_.segment(n - quat_start_index_ - 4, quat_start_index_ + 4);
-  // // std::cout << "q_reduced_ = " << std::endl << q_reduced_ << std::endl;
 
   if (!IsTerminalKnotPoint()) {
     R_ = Vector::Zero(m * m);
@@ -251,7 +242,8 @@ ErrorCodes KnotPointData::SetPenalty(a_float rho) {
   return ErrorCodes::NoError;
 }
 
-ErrorCodes KnotPointData::UpdateLinearCosts(const altro::a_float *q, const altro::a_float *r, a_float c) {
+ErrorCodes KnotPointData::UpdateLinearCosts(const altro::a_float *q, const altro::a_float *r,
+                                            a_float c) {
   if (!IsInitialized()) {
     return ALTRO_THROW(
         fmt::format("Cannot update linear costs at index {}. Knot point not initialized. ",
@@ -412,7 +404,6 @@ ErrorCodes KnotPointData::Initialize() {
   }
 
   // Backward pass data
-  // @todo use_quaternion is always true
   if (use_quaternion) {
     lxx_ = Matrix::Zero(en, en);
     luu_ = Matrix::Zero(m, m);
@@ -508,16 +499,18 @@ ErrorCodes KnotPointData::Initialize() {
 /////////////////////////////////////////////
 
 ErrorCodes KnotPointData::CalcErrorState() {
-//  x_error_.block<3, 1>(0, 0) = x_.block<3, 1>(0, 0) - x.block<3, 1>(0, 0);
+  Eigen::Vector4d quat_nominal = x.segment<4>(quat_start_index_);
+  Eigen::Vector4d quat_ = x_.segment<4>(quat_start_index_);
 
-  // @todo
-//  Eigen::Vector4d quat_ref;
-//  Eigen::Vector4d quat_;
-//  quat_ref = x.block<4, 1>(3, 0);
-//  quat_ = x_.block<4, 1>(3, 0);
-  x_error_ = inv_cayley_map(quat_mult(quat_conj(x), x_));
+  Vector x_reduced_;
+  Vector x_nominal_reduced_;
+  x_reduced_ = removeElement(x_, quat_start_index_);
+  x_nominal_reduced_ = removeElement(x, quat_start_index_);
 
-//  x_error_.block<6, 1>(6, 0) = x_.block<6, 1>(7, 0) - x.block<6, 1>(7, 0);
+  x_error_ = x_reduced_ - x_nominal_reduced_;
+  x_error_.segment<3>(quat_start_index_) =
+      inv_cayley_map(quat_mult(quat_conj(quat_nominal), quat_));
+
   return ErrorCodes::NoError;
 }
 
@@ -540,23 +533,25 @@ ErrorCodes KnotPointData::CalcErrorDynamicsExpansion() {
   // THIS FUNCTION MUST BE CALLED AFTER CalcDynamicsExpansion!!!
   if (IsTerminalKnotPoint()) return ErrorCodes::InvalidOptAtTerminalKnotPoint;
 
-  // @todo
+  Eigen::Vector4d quat_ref = x_ref.segment<4>(quat_start_index_);
+  Eigen::Vector4d quat_ref_next = next_knot_point_->x_ref.segment<4>(quat_start_index_);
+
   E_.setZero();
-//  E_.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
-//  E_.block<4, 3>(3, 3) = G(x_ref.block<4, 1>(3, 0));
-//  E_.block<3, 3>(7, 6) = Eigen::Matrix3d::Identity();
-//  E_.block<3, 3>(10, 9) = Eigen::Matrix3d::Identity();
-  E_ = G(x_ref);
+  E_.topLeftCorner(quat_start_index_, quat_start_index_).setIdentity();
+  E_.block<4, 3>(quat_start_index_, quat_start_index_) = G(quat_ref);
+  E_.bottomRightCorner(num_states_ - quat_start_index_ - 4, num_states_ - quat_start_index_ - 4)
+      .setIdentity();
 
   E_next_.setZero();
-//  E_next_.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
-//  E_next_.block<4, 3>(3, 3) = G(next_knot_point_->x_ref.block<4, 1>(3, 0));
-//  E_next_.block<3, 3>(7, 6) = Eigen::Matrix3d::Identity();
-//  E_next_.block<3, 3>(10, 9) = Eigen::Matrix3d::Identity();
-  E_next_ = G(next_knot_point_->x_ref);
+  E_next_.topLeftCorner(quat_start_index_, quat_start_index_).setIdentity();
+  E_next_.block<4, 3>(quat_start_index_, quat_start_index_) = G(quat_ref_next);
+  E_next_
+      .bottomRightCorner(num_states_ - quat_start_index_ - 4, num_states_ - quat_start_index_ - 4)
+      .setIdentity();
 
-  error_A_ = E_next_.transpose() * A_ * E_; // A_ is computed in CalcDynamicsExpansion() using dynamics_jac_
-  error_B_ = E_next_.transpose() * B_; // B_ is computed in CalcDynamicsExpansion() using dynamics_jac_
+  // A_ & B_ is computed in CalcDynamicsExpansion() using dynamics_jac_
+  error_A_ = E_next_.transpose() * A_ * E_;
+  error_B_ = E_next_.transpose() * B_;
 
   return ErrorCodes::NoError;
 }
@@ -786,7 +781,12 @@ a_float KnotPointData::CalcOriginalCost() {
       break;
     }
     case CostFunType::Quaternion: {
-      J += w_ * (1 - abs(x_ref.transpose() * x_));
+      Eigen::Vector4d quat_ref = x_ref.segment<4>(quat_start_index_);
+      Eigen::Vector4d quat_ = x_.segment<4>(quat_start_index_);
+
+      J = 0.5 * x_.transpose() * Q_.head(n).asDiagonal() * x_;
+      J += q_.dot(x_);
+      J += w_ * (1 - abs(quat_ref.transpose() * quat_));
 
       if (!IsTerminalKnotPoint()) {
         J += 0.5 * u_.transpose() * R_.head(m).asDiagonal() * u_;
@@ -830,9 +830,16 @@ void KnotPointData::CalcOriginalCostGradient() {
       break;
     }
     case CostFunType::Quaternion: {
-      lx_.setZero();
-      double tmp_var = x_ref.transpose() * x_;
-      lx_ = -w_ * sgn(tmp_var) * x_ref.transpose() * G(x_);
+      Eigen::Vector4d quat_ref = x_ref.segment<4>(quat_start_index_);
+      Eigen::Vector4d quat_ = x_.segment<4>(quat_start_index_);
+
+      Vector x_reduced_;
+      x_reduced_ = removeElement(x_, quat_start_index_);
+      lx_ = Q_reduced_.head(n - 1).asDiagonal() * x_reduced_;
+      lx_ += q_reduced_;
+
+      double tmp_var = quat_ref.transpose() * quat_;
+      lx_.segment<3>(quat_start_index_) = -w_ * sgn(tmp_var) * quat_ref.transpose() * G(quat_);
 
       if (!IsTerminalKnotPoint()) {
         lu_ = R_.head(m).asDiagonal() * u_;
@@ -868,9 +875,14 @@ void KnotPointData::CalcOriginalCostHessian() {
       break;
     }
     case CostFunType::Quaternion: {
-      lxx_.setZero();
-      double tmp_var = x_ref.transpose() * x_;
-      lxx_ = sgn(tmp_var) * x_ref.transpose() * x_ * Eigen::Matrix3d::Identity();
+      Eigen::Vector4d quat_ref = x_ref.segment<4>(quat_start_index_);
+      Eigen::Vector4d quat_ = x_.segment<4>(quat_start_index_);
+
+      lxx_ = Q_reduced_.head(n - 1).asDiagonal();
+
+      double tmp_var = quat_ref.transpose() * quat_;
+      lxx_.block<3, 3>(quat_start_index_, quat_start_index_) =
+          sgn(tmp_var) * quat_ref.transpose() * quat_ * Eigen::Matrix3d::Identity();
 
       if (!IsTerminalKnotPoint()) {
         luu_ = R_.head(m).asDiagonal();
