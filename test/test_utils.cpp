@@ -15,7 +15,8 @@
 namespace fs = std::filesystem;
 using json = nlohmann::json;
 
-void discrete_double_integrator_dynamics(double *xnext, const double *x, const double *u, float h, int dim) {
+void discrete_double_integrator_dynamics(double *xnext, const double *x, const double *u, float h,
+                                         int dim) {
   double b = h * h / 2;
   for (int i = 0; i < dim; ++i) {
     xnext[i] = x[i] + x[i + dim] * h + u[i] * b;
@@ -23,7 +24,8 @@ void discrete_double_integrator_dynamics(double *xnext, const double *x, const d
   }
 }
 
-void discrete_double_integrator_jacobian(double *jac, const double *x, const double *u, float h, int dim) {
+void discrete_double_integrator_jacobian(double *jac, const double *x, const double *u, float h,
+                                         int dim) {
   (void)x;
   (void)u;
   Eigen::Map<Eigen::MatrixXd> J(jac, 2 * dim, 3 * dim);
@@ -94,7 +96,8 @@ altro::ExplicitDynamicsFunction MidpointDynamics(int n, int m, ContinuousDynamic
   return fd;
 }
 
-altro::ExplicitDynamicsJacobian MidpointJacobian(int n, int m, ContinuousDynamicsFunction f, ContinuousDynamicsJacobian df) {
+altro::ExplicitDynamicsJacobian MidpointJacobian(int n, int m, ContinuousDynamicsFunction f,
+                                                 ContinuousDynamicsJacobian df) {
   auto fd = [n, m, f, df](double *jac, const double *x, const double *u, float h) {
     static Eigen::MatrixXd A(n, n);
     static Eigen::MatrixXd B(n, m);
@@ -128,7 +131,8 @@ altro::ExplicitDynamicsJacobian MidpointJacobian(int n, int m, ContinuousDynamic
   return fd;
 }
 
-altro::ExplicitDynamicsFunction ForwardEulerDynamics(int n, int m, const ContinuousDynamicsFunction f) {
+altro::ExplicitDynamicsFunction ForwardEulerDynamics(int n, int m,
+                                                     const ContinuousDynamicsFunction f) {
   auto fd = [n, m, f](double *xn, const double *x, const double *u, float h) {
     Eigen::Map<Eigen::VectorXd> xn_vec(xn, n);
     Eigen::Map<const Eigen::VectorXd> x_vec(x, n);
@@ -139,7 +143,9 @@ altro::ExplicitDynamicsFunction ForwardEulerDynamics(int n, int m, const Continu
   return fd;
 }
 
-altro::ExplicitDynamicsJacobian ForwardEulerJacobian(int n, int m, const ContinuousDynamicsFunction f, const ContinuousDynamicsJacobian df) {
+altro::ExplicitDynamicsJacobian ForwardEulerJacobian(int n, int m,
+                                                     const ContinuousDynamicsFunction f,
+                                                     const ContinuousDynamicsJacobian df) {
   auto fd = [n, m, f, df](double *jac, const double *x, const double *u, float h) {
     Eigen::Map<Eigen::MatrixXd> J(jac, n, n + m);
     Eigen::Map<const Eigen::VectorXd> x_vec(x, n);
@@ -215,7 +221,9 @@ void BicycleModel::Jacobian(double *jac, const double *x, const double *u) const
       bx = length_;
       beta = std::atan2(by, bx);
       dbeta_ddelta = bx / (bx * bx + by * by) * distance_to_rear_wheels_;
-      domega_ddelta = v / length_ * (-std::sin(beta) * std::tan(delta) * dbeta_ddelta + std::cos(beta) / (std::cos(delta) * std::cos(delta)));
+      domega_ddelta = v / length_ *
+                      (-std::sin(beta) * std::tan(delta) * dbeta_ddelta +
+                       std::cos(beta) / (std::cos(delta) * std::cos(delta)));
       domega_dv = std::cos(beta) * std::tan(delta) / length_;
 
       stheta = std::sin(theta + beta);
@@ -258,7 +266,8 @@ void BicycleModel::Jacobian(double *jac, const double *x, const double *u) const
   J(3, 5) = 1.0;
 }
 
-void ReadScottyTrajectory(int *Nref, float *tref, std::vector<Eigen::Vector4d> *xref, std::vector<Eigen::Vector2d> *uref) {
+void ReadScottyTrajectory(int *Nref, float *tref, std::vector<Eigen::Vector4d> *xref,
+                          std::vector<Eigen::Vector2d> *uref) {
   (void)Nref;
   (void)tref;
   (void)xref;
@@ -330,8 +339,94 @@ void SimpleQuaternionModel::Jacobian(double *jac, const double *x, const double 
 
   Eigen::Map<Eigen::Matrix<double, 4, 7>> J(jac);
   J.setZero();
-  J << 0, -wx / 2, -wy / 2, -wz / 2, -qa / 2, -qb / 2, -qc / 2, wx / 2, 0, wz / 2, -wy / 2, qs / 2, -qc / 2, qb / 2, wy / 2, -wz / 2, 0, wx / 2, qc / 2, qs / 2, -qa / 2, wz / 2, wy / 2, -wx / 2, 0, -qb / 2,
-      qa / 2, qs / 2;
+  J << 0, -wx / 2, -wy / 2, -wz / 2, -qa / 2, -qb / 2, -qc / 2, wx / 2, 0, wz / 2, -wy / 2, qs / 2,
+      -qc / 2, qb / 2, wy / 2, -wz / 2, 0, wx / 2, qc / 2, qs / 2, -qa / 2, wz / 2, wy / 2, -wx / 2,
+      0, -qb / 2, qa / 2, qs / 2;
+}
+
+void QuadrupedQuaternionModel::Dynamics(double *x_dot, const double *x, const double *u,
+                                        Eigen::Matrix<double, 3, 4> foot_pos_body,
+                                        Eigen::Matrix3d inertia_body) const {
+  Eigen::Map<Eigen::VectorXd> x_dot_vec(x_dot, 13);
+  Eigen::Map<const Eigen::VectorXd> x_vec(x, 13);
+  Eigen::Map<const Eigen::VectorXd> u_vec(u, 12);
+
+  double robot_mass = 13;
+  Eigen::Vector3d g_vec;
+  g_vec << 0, 0, -9.81;
+
+  Eigen::Vector3d moment_body;
+  moment_body = altro::skew(foot_pos_body.block<3, 1>(0, 0)) * u_vec.segment<3>(0) +
+                altro::skew(foot_pos_body.block<3, 1>(0, 1)) * u_vec.segment<3>(3) +
+                altro::skew(foot_pos_body.block<3, 1>(0, 2)) * u_vec.segment<3>(6) +
+                altro::skew(foot_pos_body.block<3, 1>(0, 3)) * u_vec.segment<3>(9);
+
+  // change rate of position
+  x_dot_vec.segment<3>(0) = x_vec.segment<3>(7);
+  // change rate of quaternion
+  x_dot_vec.segment<4>(3) = 0.5 * altro::G(x_vec.segment<4>(3)) * x_vec.segment<3>(10);
+  // change rate of linear velocity
+  x_dot_vec.segment<3>(7) =
+      (u_vec.segment<3>(0) + u_vec.segment<3>(3) + u_vec.segment<3>(6) + u_vec.segment<3>(9)) /
+          robot_mass +
+      g_vec;
+  // change rate of angular velocity
+  x_dot_vec.segment<3>(10) =
+      inertia_body.inverse() *
+      (moment_body - x_vec.segment<3>(10).cross(inertia_body * x_vec.segment<3>(10)));
+}
+
+void QuadrupedQuaternionModel::Jacobian(double *jac, const double *x, const double *u,
+                                        Eigen::Matrix<double, 3, 4> foot_pos_body,
+                                        Eigen::Matrix3d inertia_body) const {
+  (void)u;
+  Eigen::Map<Eigen::Matrix<double, 13, 25>> J(jac);  // jac = [dfc_dx, dfc_du]
+  J.setZero();
+
+  Eigen::Map<const Eigen::VectorXd> x_vec(x, 13);
+
+  double robot_mass = 13;
+
+  // Calculate dfc_dx
+  Eigen::MatrixXd dfc_dx(13, 13);
+  dfc_dx.setZero();
+  // dv/dv
+  dfc_dx.block<3, 3>(0, 7) = Eigen::Matrix3d::Identity();
+  // dqdot/dq
+  dfc_dx.block<1, 3>(3, 4) = -0.5 * x_vec.segment<3>(10).transpose();
+  dfc_dx.block<3, 1>(4, 3) = 0.5 * x_vec.segment<3>(10);
+  dfc_dx.block<3, 3>(4, 4) = -0.5 * altro::skew(x_vec.segment<3>(10));
+  // dqdot/domega
+  dfc_dx(3, 10) = -0.5 * x_vec(4);  // -0.5qa
+  dfc_dx(3, 11) = -0.5 * x_vec(5);  // -0.5qb
+  dfc_dx(3, 12) = -0.5 * x_vec(6);  // -0.5qc
+  dfc_dx(4, 10) = 0.5 * x_vec(3);   // 0.5qs
+  dfc_dx(4, 11) = -0.5 * x_vec(6);  // -0.5qc
+  dfc_dx(4, 12) = 0.5 * x_vec(5);   // 0.5qb
+  dfc_dx(5, 10) = 0.5 * x_vec(6);   // 0.5qc
+  dfc_dx(5, 11) = 0.5 * x_vec(3);   // 0.5qs
+  dfc_dx(5, 12) = -0.5 * x_vec(4);  // -0.5qa
+  dfc_dx(6, 10) = -0.5 * x_vec(5);  // -0.5qb
+  dfc_dx(6, 11) = 0.5 * x_vec(4);   // 0.5qa
+  dfc_dx(6, 12) = 0.5 * x_vec(3);   // 0.5qs
+  // domegadot/domega
+  dfc_dx.block<3, 3>(10, 10) =
+      -inertia_body.inverse() * (altro::skew(x_vec.segment<3>(10)) * inertia_body -
+                                  altro::skew(inertia_body * x_vec.segment<3>(10)));
+
+  // Calculate dfc_du
+  Eigen::MatrixXd dfc_du(13, 12);
+  dfc_du.setZero();
+
+  for (int i = 0; i < 4; ++i) {
+    dfc_du.block<3, 3>(7, 3 * i) = (1 / robot_mass) * Eigen::Matrix3d::Identity();
+    dfc_du.block<3, 3>(10, 3 * i) =
+        inertia_body.inverse() * altro::skew(foot_pos_body.block<3, 1>(0, i));
+  }
+
+  // Get Jacobian
+  J.block<13, 13>(0, 0) = dfc_dx;
+  J.block<13, 12>(0, 13) = dfc_du;
 }
 
 Eigen::Vector4d Slerp(Eigen::Vector4d q1, Eigen::Vector4d q2, double t) {

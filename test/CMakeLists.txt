@@ -85,3 +85,17 @@ target_link_libraries(simple_quaternion_track_test
   nlohmann_json::nlohmann_json
 )
 gtest_discover_tests(simple_quaternion_track_test)
+
+add_executable(quadruped_quat_test
+        quadruped_quat_test.cpp
+        )
+target_link_libraries(quadruped_quat_test
+        PRIVATE
+        gtest_main
+        altro::altro
+        altro::test_utils
+        fmt::fmt
+        Eigen3::Eigen
+        nlohmann_json::nlohmann_json
+        )
+gtest_discover_tests(quadruped_quat_test)
