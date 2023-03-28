@@ -23,3 +23,19 @@ figure(1);
 plot(reference_w, 'LineWidth', 10);
 grid on, hold on;
 plot(w_trajectory, 'LineWidth', 5, 'LineStyle', '--');
+ylim([-0.5, 0.5]);
+
+figure(2);
+plot(reference_v, 'LineWidth', 10);
+grid on, hold on;
+plot(v_trajectory, 'LineWidth', 5, 'LineStyle', '--');
+
+figure(3);
+plot(reference_r, 'LineWidth', 10);
+grid on, hold on;
+plot(r_trajectory, 'LineWidth', 5, 'LineStyle', '--');
+
+figure(4);
+plot(reference_q, 'LineWidth', 10);
+grid on, hold on;
+plot(q_trajectory, 'LineWidth', 5, 'LineStyle', '--');

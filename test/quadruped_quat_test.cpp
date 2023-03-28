@@ -138,7 +138,7 @@ TEST(QuadrupedQuatTest, MPC) {
   const int en = QuadrupedQuaternionModel::NumErrorStates;
   const int m = QuadrupedQuaternionModel::NumInputs;
   const int em = QuadrupedQuaternionModel::NumErrorInputs;
-  const int N = 20;
+  const int N = 30;
   const double h = 0.01;
   Eigen::Matrix<double, 3, 4> foot_pos_body;
   Eigen::Matrix<double, 3, 3> inertia_body;
@@ -147,60 +147,91 @@ TEST(QuadrupedQuatTest, MPC) {
   ALTROSolver solver(N);
 
   /// REFERENCES ///
-  Eigen::Vector3d r_start;
-  Eigen::Vector4d q_start;
-  Eigen::Vector3d v_start;
-  Eigen::Vector3d w_start;
-  r_start << 0.0, 0.0, 0.3;
-  q_start << 1.0, 0.0, 0.0, 0.0;
-  v_start << 0.0, 0.0, 0.0;
-  w_start << 0.0, 0.0, 0.0;
+//  Eigen::Vector3d r_start;
+//  Eigen::Vector4d q_start;
+//  Eigen::Vector3d v_start;
+//  Eigen::Vector3d w_start;
+//  r_start << 0.0, 0.0, 0.3;
+//  q_start << 1.0, 0.0, 0.0, 0.0;
+//  v_start << 0.0, 0.0, 0.0;
+//  w_start << 0.0, 0.0, 0.0;
+//
+//  Eigen::Vector3d r_dot;
+//  Eigen::Vector4d q_dot;
+//  Eigen::Vector3d v_dot;
+//  Eigen::Vector3d w_dot;
+//  q_dot = 0.5 * altro::G(q_start) * w_start;
+//  v_dot << 0.0, 0.0, 0.0;  // linear acceleration
+//  w_dot << 0.3, 0.4, 0.5;  // angular acceleration
+//
+//  Eigen::Vector3d r_ref;
+//  Eigen::Vector4d q_ref;
+//  Eigen::Vector3d v_ref;
+//  Eigen::Vector3d w_ref;
+//  q_ref = q_start;
+//  v_ref = v_start;
+//  w_ref = w_start;
+//
+//  std::vector<Eigen::VectorXd> X_ref;
+//  std::vector<Eigen::VectorXd> U_ref;
+//  for (int i = 0; i <= N; ++i) {
+//    Vector x_ref = Vector::Zero(n);
+//    Vector u_ref = Vector::Zero(m);
+//    double t = h * i;
+//
+//    r_ref = r_start + t * v_start + 0.5 * t * t * v_dot;
+//    q_ref = q_ref + q_dot * h;
+//    v_ref = v_ref + v_dot * h;
+//    w_ref = w_ref + w_dot * h;
+//
+//    x_ref.head(3) = r_ref;
+//    x_ref.segment<4>(3) = q_ref;
+//    x_ref.segment<3>(7) = v_ref;
+//    x_ref.tail(3) = w_ref;
+//
+//    X_ref.emplace_back(x_ref);
+//    U_ref.emplace_back(u_ref);
+//
+//    q_dot = 0.5 * altro::G(q_ref) * w_ref;  // update q_dot
+//  }
 
-  Eigen::Vector3d r_dot;
-  Eigen::Vector4d q_dot;
-  Eigen::Vector3d v_dot;
-  Eigen::Vector3d w_dot;
-  q_dot = 0.5 * altro::G(q_start) * w_start;
-  v_dot << 0.0, 0.0, 0.0;  // linear acceleration
-  w_dot << 0.3, 0.4, 0.5;  // angular acceleration
-
-  Eigen::Vector3d r_ref;
-  Eigen::Vector4d q_ref;
-  Eigen::Vector3d v_ref;
-  Eigen::Vector3d w_ref;
-  q_ref = q_start;
-  v_ref = v_start;
-  w_ref = w_start;
-
+  // Try some simple reference
   std::vector<Eigen::VectorXd> X_ref;
   std::vector<Eigen::VectorXd> U_ref;
-  for (int i = 0; i <= N; ++i) {
+
+  for (int i = 0; i <= N; i++) {
     Vector x_ref = Vector::Zero(n);
     Vector u_ref = Vector::Zero(m);
-    double t = h * i;
 
-    r_ref = r_start + t * v_start + 0.5 * t * t * v_dot;
-    q_ref = q_ref + q_dot * h;
-    v_ref = v_ref + v_dot * h;
-    w_ref = w_ref + w_dot * h;
-
-    x_ref.head(3) = r_ref;
-    x_ref.segment<4>(3) = q_ref;
-    x_ref.segment<3>(7) = v_ref;
-    x_ref.tail(3) = w_ref;
+    x_ref << 0.0, 0.0, 0.2,
+             1.0, 0.0, 0.0, 0.0,
+             0.0, 0.0, 0.15,
+             0.0, 0.0, 0.0;
+    u_ref << 0.0, 0.0, 13 * 9.81 / 4,
+             0.0, 0.0, 13 * 9.81 / 4,
+             0.0, 0.0, 13 * 9.81 / 4,
+             0.0, 0.0, 13 * 9.81 / 4;
 
     X_ref.emplace_back(x_ref);
     U_ref.emplace_back(u_ref);
-
-    q_dot = 0.5 * altro::G(q_ref) * w_ref;  // update q_dot
   }
 
   /// OBJECTIVE ///
   Eigen::Matrix<double, n, 1> Qd;
   Eigen::Matrix<double, m, 1> Rd;
-  double w = 1.0;
+//  double w = 1.0;
+//
+//  Qd << 1.0, 1.0, 1.0,
+//        0, 0, 0, 0,
+//        10.0, 10.0, 10.0,
+//        10.0, 10.0, 10.0;
 
-  Qd << 1.0, 1.0, 1.0, 0, 0, 0, 0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0;
+  double w = 3.0;
+  Qd << 0.0, 0.0, 3.0,      // only track z position
+        0.0, 0.0, 0.0, 0.0,  // ignore quaternion in Q
+        0.1, 0.1, 0.1,       // track linear velocity
+        0.1, 0.1, 3.0;       // track angular velocity
+
   Rd << 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6;
 
   /// DYNAMICS ///
@@ -217,7 +248,7 @@ TEST(QuadrupedQuatTest, MPC) {
   ExplicitDynamicsJacobian dt_jac = ForwardEulerJacobian(n, m, ct_dyn, ct_jac);
 
   /// CONSTRAINTS ///
-  float contacts[4] = {1.0, 0.0, 0.0, 1.0};  // FL, FR, RL, RR
+  float contacts[4] = {1.0, 1.0, 1.0, 1.0};  // FL, FR, RL, RR
   float mu = 0.7;
   float fz_max = 666;
   float fz_min = 5;
@@ -276,7 +307,13 @@ TEST(QuadrupedQuatTest, MPC) {
 
   solver.SetConstraint(friction_cone_con, friction_cone_jac, 24, ConstraintType::INEQUALITY,
                        "friction cone", 0, N + 1);
-  solver.SetInitialState(X_ref.at(0).data(), n);
+
+  Vector x_init = Vector::Zero(n);
+  x_init << 0.0, 0.0, 0.0, // must be zero
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0;
+  solver.SetInitialState(x_init.data(), n);
   solver.Initialize();
 
   // Initial guesses

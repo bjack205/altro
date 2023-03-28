@@ -313,7 +313,6 @@ TEST_F(BicycleMPC, TrackingMPC_2Solves) {
 
     // Get error from reference
     tracking_error.emplace_back((x_sim[mpc_iter + 1] - x_ref[mpc_iter + 1]).norm());
-//    fmt::print("mpc iter {}: err = {}, solve iters = {}\n", mpc_iter, tracking_error, solve_iters);
 
     // Set new reference trajectory
     ++mpc_iter;
