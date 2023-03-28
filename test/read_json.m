@@ -19,6 +19,7 @@ q_trajectory = state_trajectory(:, 4:7);
 v_trajectory = state_trajectory(:, 8:10);
 w_trajectory = state_trajectory(:, 11:13);
 
+figure(1);
 plot(reference_w, 'LineWidth', 10);
 grid on, hold on;
 plot(w_trajectory, 'LineWidth', 5, 'LineStyle', '--');

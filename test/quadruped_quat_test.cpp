@@ -138,7 +138,7 @@ TEST(QuadrupedQuatTest, MPC) {
   const int en = QuadrupedQuaternionModel::NumErrorStates;
   const int m = QuadrupedQuaternionModel::NumInputs;
   const int em = QuadrupedQuaternionModel::NumErrorInputs;
-  const int N = 30;
+  const int N = 20;
   const double h = 0.01;
   Eigen::Matrix<double, 3, 4> foot_pos_body;
   Eigen::Matrix<double, 3, 3> inertia_body;
@@ -217,46 +217,47 @@ TEST(QuadrupedQuatTest, MPC) {
   ExplicitDynamicsJacobian dt_jac = ForwardEulerJacobian(n, m, ct_dyn, ct_jac);
 
   /// CONSTRAINTS ///
-  //  float contacts[4] = {1.0, 0.0, 0.0, 1.0};  // FL, FR, RL, RR
-  //  float mu = 0.7;
-  //  float fz_max = 666;
-  //  auto friction_cone_con = [contacts, mu, fz_max](a_float *c, const a_float *x, const a_float
-  //  *u) {
-  //    (void)x;
-  //    for (int i = 0; i < 4; i++) {
-  //      c[0 + i * 6] = u[0 + i * 3] - mu * u[2 + i * 3];     // fx - mu*fz <= 0
-  //      c[1 + i * 6] = -u[0 + i * 3] - mu * u[2 + i * 3];    // -fx - mu*fz <= 0
-  //      c[2 + i * 6] = u[1 + i * 3] - mu * u[2 + i * 3];     // fy - mu*fz <= 0
-  //      c[3 + i * 6] = -u[1 + i * 3] - mu * u[2 + i * 3];    // -fy - mu*fz <= 0
-  //      c[4 + i * 6] = u[2 + i * 3] - fz_max * contacts[i];  // fz <= fz_max
-  //      c[5 + i * 6] = -u[2 + i * 3] + 10;                   // -fz + 10 <= 0
-  //    }
-  //  };
-  //
-  //  auto friction_cone_jac = [mu](a_float *jac, const a_float *x, const a_float *u) {
-  //    (void)x;
-  //    (void)u;
-  //    Eigen::Map<Eigen::Matrix<a_float, 24, 24>> J(jac);
-  //    J.setZero();
-  //
-  //    for (int i = 0; i < 4; i++) {
-  //      J(0 + i * 6, 12 + i * 3) = 1;    // dc0/dfx
-  //      J(0 + i * 6, 14 + i * 3) = -mu;  // dc0/dfz
-  //      J(1 + i * 6, 12 + i * 3) = -1;   // dc1/dfx
-  //      J(1 + i * 6, 14 + i * 3) = -mu;  // dc1/dfz
-  //      J(2 + i * 6, 13 + i * 3) = 1;    // dc2/dfy
-  //      J(2 + i * 6, 14 + i * 3) = -mu;  // dc2/dfz
-  //      J(3 + i * 6, 13 + i * 3) = -1;   // dc3/dfy
-  //      J(3 + i * 6, 14 + i * 3) = -mu;  // dc3/dfz
-  //      J(4 + i * 6, 14 + i * 3) = 1;    // dc4/dfz
-  //      J(5 + i * 6, 14 + i * 3) = -1;   // dc5/dfz
-  //    }
-  //  };
+  float contacts[4] = {1.0, 0.0, 0.0, 1.0};  // FL, FR, RL, RR
+  float mu = 0.7;
+  float fz_max = 666;
+  float fz_min = 5;
+  auto friction_cone_con = [contacts, mu, fz_max, fz_min](a_float *c, const a_float *x,
+                                                          const a_float *u) {
+    (void)x;
+    for (int i = 0; i < 4; i++) {
+      c[0 + i * 6] = u[0 + i * 3] - mu * u[2 + i * 3];      // fx - mu*fz <= 0
+      c[1 + i * 6] = -u[0 + i * 3] - mu * u[2 + i * 3];     // -fx - mu*fz <= 0
+      c[2 + i * 6] = u[1 + i * 3] - mu * u[2 + i * 3];      // fy - mu*fz <= 0
+      c[3 + i * 6] = -u[1 + i * 3] - mu * u[2 + i * 3];     // -fy - mu*fz <= 0
+      c[4 + i * 6] = u[2 + i * 3] - fz_max * contacts[i];   // fz <= fz_max
+      c[5 + i * 6] = -u[2 + i * 3] + fz_min * contacts[i];  // -fz + 5 <= 0
+    }
+  };
+
+  auto friction_cone_jac = [mu](a_float *jac, const a_float *x, const a_float *u) {
+    (void)x;
+    (void)u;
+    Eigen::Map<Eigen::Matrix<a_float, 24, 25>> J(jac);
+    J.setZero();
+
+    for (int i = 0; i < 4; i++) {
+      J(0 + i * 6, 13 + i * 3) = 1;    // dc0/dfx
+      J(0 + i * 6, 15 + i * 3) = -mu;  // dc0/dfz
+      J(1 + i * 6, 13 + i * 3) = -1;   // dc1/dfx
+      J(1 + i * 6, 15 + i * 3) = -mu;  // dc1/dfz
+      J(2 + i * 6, 14 + i * 3) = 1;    // dc2/dfy
+      J(2 + i * 6, 15 + i * 3) = -mu;  // dc2/dfz
+      J(3 + i * 6, 14 + i * 3) = -1;   // dc3/dfy
+      J(3 + i * 6, 15 + i * 3) = -mu;  // dc3/dfz
+      J(4 + i * 6, 15 + i * 3) = 1;    // dc4/dfz
+      J(5 + i * 6, 15 + i * 3) = -1;   // dc5/dfz
+    }
+  };
 
   /// SETUP ///
   AltroOptions opts;
   opts.verbose = Verbosity::Inner;
-  opts.iterations_max = 80;
+  opts.iterations_max = 10;
   opts.use_backtracking_linesearch = true;
   opts.use_quaternion = true;
   opts.quat_start_index = 3;
@@ -273,8 +274,8 @@ TEST(QuadrupedQuatTest, MPC) {
                              i, 0);
   }
 
-  //  solver.SetConstraint(friction_cone_con, friction_cone_jac, 24, ConstraintType::INEQUALITY,
-  //                       "friction cone", 0, N + 1);
+  solver.SetConstraint(friction_cone_con, friction_cone_jac, 24, ConstraintType::INEQUALITY,
+                       "friction cone", 0, N + 1);
   solver.SetInitialState(X_ref.at(0).data(), n);
   solver.Initialize();
 
