@@ -43,11 +43,11 @@ TEST(QuadrupedQuatTest, Dynamics) {
 
   auto model_ptr = std::make_shared<QuadrupedQuaternionModel>();
   ContinuousDynamicsFunction ct_dyn = [model_ptr, foot_pos_body, inertia_body](
-                                          double *x_dot, const double *x, const double *u) {
+      double *x_dot, const double *x, const double *u) {
     model_ptr->Dynamics(x_dot, x, u, foot_pos_body, inertia_body);
   };
   ContinuousDynamicsJacobian ct_jac = [model_ptr, foot_pos_body, inertia_body](
-                                          double *jac, const double *x, const double *u) {
+      double *jac, const double *x, const double *u) {
     model_ptr->Jacobian(jac, x, u, foot_pos_body, inertia_body);
   };
   auto dt_dyn = MidpointDynamics(n, m, ct_dyn);
@@ -204,13 +204,13 @@ TEST(QuadrupedQuatTest, MPC) {
     Vector u_ref = Vector::Zero(m);
 
     x_ref << 0.0, 0.0, 0.2,
-             1.0, 0.0, 0.0, 0.0,
-             0.0, 0.0, 0.15,
-             0.0, 0.0, 0.0;
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 0.0, 0.15,
+        0.0, 0.0, 0.0;
     u_ref << 0.0, 0.0, 13 * 9.81 / 4,
-             0.0, 0.0, 13 * 9.81 / 4,
-             0.0, 0.0, 13 * 9.81 / 4,
-             0.0, 0.0, 13 * 9.81 / 4;
+        0.0, 0.0, 13 * 9.81 / 4,
+        0.0, 0.0, 13 * 9.81 / 4,
+        0.0, 0.0, 13 * 9.81 / 4;
 
     X_ref.emplace_back(x_ref);
     U_ref.emplace_back(u_ref);
@@ -228,33 +228,33 @@ TEST(QuadrupedQuatTest, MPC) {
 
   double w = 3.0;
   Qd << 0.0, 0.0, 3.0,      // only track z position
-        0.0, 0.0, 0.0, 0.0,  // ignore quaternion in Q
-        0.1, 0.1, 0.1,       // track linear velocity
-        0.1, 0.1, 3.0;       // track angular velocity
+      0.0, 0.0, 0.0, 0.0,  // ignore quaternion in Q
+      0.1, 0.1, 0.1,       // track linear velocity
+      0.1, 0.1, 3.0;       // track angular velocity
 
   Rd << 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6;
 
   /// DYNAMICS ///
   auto model_ptr = std::make_shared<QuadrupedQuaternionModel>();
   ContinuousDynamicsFunction ct_dyn = [model_ptr, foot_pos_body, inertia_body](
-                                          double *x_dot, const double *x, const double *u) {
+      double *x_dot, const double *x, const double *u) {
     model_ptr->Dynamics(x_dot, x, u, foot_pos_body, inertia_body);
   };
   ContinuousDynamicsJacobian ct_jac = [model_ptr, foot_pos_body, inertia_body](
-                                          double *jac, const double *x, const double *u) {
+      double *jac, const double *x, const double *u) {
     model_ptr->Jacobian(jac, x, u, foot_pos_body, inertia_body);
   };
   ExplicitDynamicsFunction dt_dyn = ForwardEulerDynamics(n, m, ct_dyn);
   ExplicitDynamicsJacobian dt_jac = ForwardEulerJacobian(n, m, ct_dyn, ct_jac);
 
   /// CONSTRAINTS ///
-  float contacts[4] = {1.0, 1.0, 1.0, 1.0};  // FL, FR, RL, RR
+  float contacts[4] = {0.0, 1.0, 1.0, 0.0};  // FL, FR, RL, RR
   float mu = 0.7;
   float fz_max = 666;
   float fz_min = 5;
   auto friction_cone_con = [contacts, mu, fz_max, fz_min](a_float *c, const a_float *x,
                                                           const a_float *u) {
-    (void)x;
+    (void) x;
     for (int i = 0; i < 4; i++) {
       c[0 + i * 6] = u[0 + i * 3] - mu * u[2 + i * 3];      // fx - mu*fz <= 0
       c[1 + i * 6] = -u[0 + i * 3] - mu * u[2 + i * 3];     // -fx - mu*fz <= 0
@@ -266,22 +266,22 @@ TEST(QuadrupedQuatTest, MPC) {
   };
 
   auto friction_cone_jac = [mu](a_float *jac, const a_float *x, const a_float *u) {
-    (void)x;
-    (void)u;
-    Eigen::Map<Eigen::Matrix<a_float, 24, 25>> J(jac);
+    (void) x;
+    (void) u;
+    Eigen::Map<Eigen::Matrix<a_float, 24, 24>> J(jac);
     J.setZero();
 
     for (int i = 0; i < 4; i++) {
-      J(0 + i * 6, 13 + i * 3) = 1;    // dc0/dfx
-      J(0 + i * 6, 15 + i * 3) = -mu;  // dc0/dfz
-      J(1 + i * 6, 13 + i * 3) = -1;   // dc1/dfx
-      J(1 + i * 6, 15 + i * 3) = -mu;  // dc1/dfz
-      J(2 + i * 6, 14 + i * 3) = 1;    // dc2/dfy
-      J(2 + i * 6, 15 + i * 3) = -mu;  // dc2/dfz
-      J(3 + i * 6, 14 + i * 3) = -1;   // dc3/dfy
-      J(3 + i * 6, 15 + i * 3) = -mu;  // dc3/dfz
-      J(4 + i * 6, 15 + i * 3) = 1;    // dc4/dfz
-      J(5 + i * 6, 15 + i * 3) = -1;   // dc5/dfz
+      J(0 + i * 6, 12 + i * 3) = 1;    // dc0/dfx
+      J(0 + i * 6, 14 + i * 3) = -mu;  // dc0/dfz
+      J(1 + i * 6, 12 + i * 3) = -1;   // dc1/dfx
+      J(1 + i * 6, 14 + i * 3) = -mu;  // dc1/dfz
+      J(2 + i * 6, 13 + i * 3) = 1;    // dc2/dfy
+      J(2 + i * 6, 14 + i * 3) = -mu;  // dc2/dfz
+      J(3 + i * 6, 13 + i * 3) = -1;   // dc3/dfy
+      J(3 + i * 6, 14 + i * 3) = -mu;  // dc3/dfz
+      J(4 + i * 6, 14 + i * 3) = 1;    // dc4/dfz
+      J(5 + i * 6, 14 + i * 3) = -1;   // dc5/dfz
     }
   };
 
@@ -310,9 +310,9 @@ TEST(QuadrupedQuatTest, MPC) {
 
   Vector x_init = Vector::Zero(n);
   x_init << 0.0, 0.0, 0.0, // must be zero
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0;
+      1.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0;
   solver.SetInitialState(x_init.data(), n);
   solver.Initialize();
 
@@ -349,7 +349,8 @@ TEST(QuadrupedQuatTest, MPC) {
   }
 
   // Save trajectory to JSON file
-  std::filesystem::path out_file = "/home/zixin/Dev/ALTRO/test/quadruped_quat_test.json";
+  std::filesystem::path test_dir = ALTRO_TEST_DIR;
+  std::filesystem::path out_file = test_dir / "quadruped_quat_test.json";
   std::ofstream traj_out(out_file);
   json X_ref_data(X_ref);
   json U_ref_data(U_ref);

@@ -93,7 +93,7 @@ ErrorCodes KnotPointData::SetQuadraticCost(int n, int m, const a_float *Qmat, co
 
   Q_ = Vector::Zero(n * n);
   R_ = Vector::Zero(m * m);
-  H_ = Matrix ::Zero(m, n);
+  H_ = Matrix::Zero(m, n);
   q_ = Eigen::Map<const Vector>(q, n);
   r_ = Eigen::Map<const Vector>(r, m);
   c_ = c;
@@ -118,7 +118,7 @@ ErrorCodes KnotPointData::SetDiagonalCost(int n, int m, const a_float *Qdiag, co
   Q_ = Vector::Zero(n * n);
   Q_.head(n) = Eigen::Map<const Vector>(Qdiag, n);
 
-  H_ = Matrix ::Zero(m, n);
+  H_ = Matrix::Zero(m, n);
   q_ = Eigen::Map<const Vector>(q, n);
   c_ = c;
 
@@ -387,20 +387,38 @@ ErrorCodes KnotPointData::Initialize() {
   proj_hess_.reserve(num_constraints);
   jac_tmp_.reserve(num_constraints);
   rho_.reserve(num_constraints);
-  for (int i = 0; i < num_constraints; ++i) {
-    int p = constraint_dims_[i];
-    constraint_val_.emplace_back(Vector::Zero(p));
-    constraint_jac_.emplace_back(Matrix::Zero(p, n + m));
-    constraint_hess_.emplace_back(Matrix::Zero(n + m, n + m));
-    v_.emplace_back(Vector::Zero(p));
-    z_.emplace_back(Vector::Zero(p));
-    z_est_.emplace_back(Vector::Zero(p));
-    z_proj_.emplace_back(Vector::Zero(p));
-    proj_jvp_.emplace_back(Vector::Zero(p));
-    proj_jac_.emplace_back(Matrix::Zero(p, p));
-    proj_hess_.emplace_back(Matrix::Zero(p, p));
-    jac_tmp_.emplace_back(Matrix::Zero(p, n + m));
-    rho_.emplace_back(1.0);
+  if (use_quaternion) {
+    for (int i = 0; i < num_constraints; ++i) {
+      int p = constraint_dims_[i];
+      constraint_val_.emplace_back(Vector::Zero(p));
+      constraint_jac_.emplace_back(Matrix::Zero(p, n - 1 + m));
+      constraint_hess_.emplace_back(Matrix::Zero(n - 1 + m, n - 1 + m));
+      v_.emplace_back(Vector::Zero(p));
+      z_.emplace_back(Vector::Zero(p));
+      z_est_.emplace_back(Vector::Zero(p));
+      z_proj_.emplace_back(Vector::Zero(p));
+      proj_jvp_.emplace_back(Vector::Zero(p));
+      proj_jac_.emplace_back(Matrix::Zero(p, p));
+      proj_hess_.emplace_back(Matrix::Zero(p, p));
+      jac_tmp_.emplace_back(Matrix::Zero(p, n - 1 + m));
+      rho_.emplace_back(1.0);
+    }
+  } else {
+    for (int i = 0; i < num_constraints; ++i) {
+      int p = constraint_dims_[i];
+      constraint_val_.emplace_back(Vector::Zero(p));
+      constraint_jac_.emplace_back(Matrix::Zero(p, n + m));
+      constraint_hess_.emplace_back(Matrix::Zero(n + m, n + m));
+      v_.emplace_back(Vector::Zero(p));
+      z_.emplace_back(Vector::Zero(p));
+      z_est_.emplace_back(Vector::Zero(p));
+      z_proj_.emplace_back(Vector::Zero(p));
+      proj_jvp_.emplace_back(Vector::Zero(p));
+      proj_jac_.emplace_back(Matrix::Zero(p, p));
+      proj_hess_.emplace_back(Matrix::Zero(p, p));
+      jac_tmp_.emplace_back(Matrix::Zero(p, n + m));
+      rho_.emplace_back(1.0);
+    }
   }
 
   // Backward pass data
@@ -724,9 +742,16 @@ ErrorCodes KnotPointData::CalcConstraintCostGradients() {
   int num_con = NumConstraints();
   CalcConicJacobians();
   for (int j = 0; j < num_con; ++j) {
-    lx_.noalias() -= constraint_jac_[j].leftCols(num_states_).transpose() * proj_jvp_[j];
-    if (!IsTerminalKnotPoint()) {
-      lu_.noalias() -= constraint_jac_[j].rightCols(num_inputs_).transpose() * proj_jvp_[j];
+    if (use_quaternion) {
+      lx_.noalias() -= constraint_jac_[j].leftCols(num_states_ - 1).transpose() * proj_jvp_[j];
+      if (!IsTerminalKnotPoint()) {
+        lu_.noalias() -= constraint_jac_[j].rightCols(num_inputs_).transpose() * proj_jvp_[j];
+      }
+    } else {
+      lx_.noalias() -= constraint_jac_[j].leftCols(num_states_).transpose() * proj_jvp_[j];
+      if (!IsTerminalKnotPoint()) {
+        lu_.noalias() -= constraint_jac_[j].rightCols(num_inputs_).transpose() * proj_jvp_[j];
+      }
     }
   }
   return ErrorCodes::NoError;
@@ -741,10 +766,18 @@ ErrorCodes KnotPointData::CalcConstraintCostHessians() {
   for (int j = 0; j < num_con; ++j) {
     int n = num_states_;
     int m = num_inputs_;
-    lxx_ += constraint_hess_[j].topLeftCorner(n, n);
-    if (!IsTerminalKnotPoint()) {
-      luu_ += constraint_hess_[j].bottomRightCorner(m, m);
-      lux_ += constraint_hess_[j].bottomLeftCorner(m, n);
+    if (use_quaternion) {
+      lxx_ += constraint_hess_[j].topLeftCorner(n - 1, n - 1);
+      if (!IsTerminalKnotPoint()) {
+        luu_ += constraint_hess_[j].bottomRightCorner(m, m);
+        lux_ += constraint_hess_[j].bottomLeftCorner(m, n - 1);
+      }
+    } else {
+      lxx_ += constraint_hess_[j].topLeftCorner(n, n);
+      if (!IsTerminalKnotPoint()) {
+        luu_ += constraint_hess_[j].bottomRightCorner(m, m);
+        lux_ += constraint_hess_[j].bottomLeftCorner(m, n);
+      }
     }
   }
   return ErrorCodes::NoError;
