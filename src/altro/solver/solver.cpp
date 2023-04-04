@@ -555,7 +555,7 @@ ErrorCodes SolverImpl::Solve() {
     // Print log
     if (opts.verbose > Verbosity::Silent) {
       fmt::print(
-          "  iter = {:3d}, phi = {:8.4g} -> {:8.4g} ({:10.3g}), dphi = {:10.3g} -> {:10.3g}, alpha "
+          "  iter = {:3d}, phi = {:9.4g} -> {:9.4g} ({:10.3g}), dphi = {:10.3g} -> {:10.3g}, alpha "
           "= "
           "{:8.3g}, ls_iter = {:2d}, stat = {:8.3e}, feas = {:8.3e}, rho = {:7.2g}, dual update? "
           "{}\n",

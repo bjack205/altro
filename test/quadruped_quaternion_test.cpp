@@ -138,7 +138,7 @@ TEST(QuadrupedQuatTest, MPC) {
   const int en = QuadrupedQuaternionModel::NumErrorStates;
   const int m = QuadrupedQuaternionModel::NumInputs;
   const int em = QuadrupedQuaternionModel::NumErrorInputs;
-  const int N = 30;
+  const int N = 10;
   const double h = 0.01;
   Eigen::Matrix<double, 3, 4> foot_pos_body;
   Eigen::Matrix<double, 3, 3> inertia_body;
@@ -147,70 +147,22 @@ TEST(QuadrupedQuatTest, MPC) {
   ALTROSolver solver(N);
 
   /// REFERENCES ///
-//  Eigen::Vector3d r_start;
-//  Eigen::Vector4d q_start;
-//  Eigen::Vector3d v_start;
-//  Eigen::Vector3d w_start;
-//  r_start << 0.0, 0.0, 0.3;
-//  q_start << 1.0, 0.0, 0.0, 0.0;
-//  v_start << 0.0, 0.0, 0.0;
-//  w_start << 0.0, 0.0, 0.0;
-//
-//  Eigen::Vector3d r_dot;
-//  Eigen::Vector4d q_dot;
-//  Eigen::Vector3d v_dot;
-//  Eigen::Vector3d w_dot;
-//  q_dot = 0.5 * altro::G(q_start) * w_start;
-//  v_dot << 0.0, 0.0, 0.0;  // linear acceleration
-//  w_dot << 0.3, 0.4, 0.5;  // angular acceleration
-//
-//  Eigen::Vector3d r_ref;
-//  Eigen::Vector4d q_ref;
-//  Eigen::Vector3d v_ref;
-//  Eigen::Vector3d w_ref;
-//  q_ref = q_start;
-//  v_ref = v_start;
-//  w_ref = w_start;
-//
-//  std::vector<Eigen::VectorXd> X_ref;
-//  std::vector<Eigen::VectorXd> U_ref;
-//  for (int i = 0; i <= N; ++i) {
-//    Vector x_ref = Vector::Zero(n);
-//    Vector u_ref = Vector::Zero(m);
-//    double t = h * i;
-//
-//    r_ref = r_start + t * v_start + 0.5 * t * t * v_dot;
-//    q_ref = q_ref + q_dot * h;
-//    v_ref = v_ref + v_dot * h;
-//    w_ref = w_ref + w_dot * h;
-//
-//    x_ref.head(3) = r_ref;
-//    x_ref.segment<4>(3) = q_ref;
-//    x_ref.segment<3>(7) = v_ref;
-//    x_ref.tail(3) = w_ref;
-//
-//    X_ref.emplace_back(x_ref);
-//    U_ref.emplace_back(u_ref);
-//
-//    q_dot = 0.5 * altro::G(q_ref) * w_ref;  // update q_dot
-//  }
-
-  // Try some simple reference
   std::vector<Eigen::VectorXd> X_ref;
   std::vector<Eigen::VectorXd> U_ref;
+  float contacts[4] = {0.0, 1.0, 1.0, 0.0};  // FL, FR, RL, RR
 
   for (int i = 0; i <= N; i++) {
     Vector x_ref = Vector::Zero(n);
     Vector u_ref = Vector::Zero(m);
 
-    x_ref << 0.0, 0.0, 0.2,
+    x_ref << 0.0, 0.0, 0.3,
         1.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.15,
+        0.0, 0.0, 0.0,
         0.0, 0.0, 0.0;
-    u_ref << 0.0, 0.0, 13 * 9.81 / 4,
-        0.0, 0.0, 13 * 9.81 / 4,
-        0.0, 0.0, 13 * 9.81 / 4,
-        0.0, 0.0, 13 * 9.81 / 4;
+    u_ref << 0.0, 0.0, 13 * 9.81 / 2 * contacts[0],
+        0.0, 0.0, 13 * 9.81 / 2 * contacts[1],
+        0.0, 0.0, 13 * 9.81 / 2 * contacts[2],
+        0.0, 0.0, 13 * 9.81 / 2 * contacts[3];
 
     X_ref.emplace_back(x_ref);
     U_ref.emplace_back(u_ref);
@@ -219,18 +171,12 @@ TEST(QuadrupedQuatTest, MPC) {
   /// OBJECTIVE ///
   Eigen::Matrix<double, n, 1> Qd;
   Eigen::Matrix<double, m, 1> Rd;
-//  double w = 1.0;
-//
-//  Qd << 1.0, 1.0, 1.0,
-//        0, 0, 0, 0,
-//        10.0, 10.0, 10.0,
-//        10.0, 10.0, 10.0;
 
-  double w = 3.0;
-  Qd << 0.0, 0.0, 3.0,      // only track z position
+  double w = 1.0;
+  Qd << 1.0, 1.0, 1.0,     // only track z position
       0.0, 0.0, 0.0, 0.0,  // ignore quaternion in Q
       0.1, 0.1, 0.1,       // track linear velocity
-      0.1, 0.1, 3.0;       // track angular velocity
+      0.1, 0.1, 0.1;       // track angular velocity
 
   Rd << 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6;
 
@@ -248,7 +194,6 @@ TEST(QuadrupedQuatTest, MPC) {
   ExplicitDynamicsJacobian dt_jac = ForwardEulerJacobian(n, m, ct_dyn, ct_jac);
 
   /// CONSTRAINTS ///
-  float contacts[4] = {0.0, 1.0, 1.0, 0.0};  // FL, FR, RL, RR
   float mu = 0.7;
   float fz_max = 666;
   float fz_min = 5;
@@ -288,7 +233,7 @@ TEST(QuadrupedQuatTest, MPC) {
   /// SETUP ///
   AltroOptions opts;
   opts.verbose = Verbosity::Inner;
-  opts.iterations_max = 10;
+  opts.iterations_max = 1;
   opts.use_backtracking_linesearch = true;
   opts.use_quaternion = true;
   opts.quat_start_index = 3;
@@ -309,7 +254,7 @@ TEST(QuadrupedQuatTest, MPC) {
                        "friction cone", 0, N + 1);
 
   Vector x_init = Vector::Zero(n);
-  x_init << 0.0, 0.0, 0.0, // must be zero
+  x_init << 0.0, 0.0, 0.3,
       1.0, 0.0, 0.0, 0.0,
       0.0, 0.0, 0.0,
       0.0, 0.0, 0.0;
@@ -350,7 +295,7 @@ TEST(QuadrupedQuatTest, MPC) {
 
   // Save trajectory to JSON file
   std::filesystem::path test_dir = ALTRO_TEST_DIR;
-  std::filesystem::path out_file = test_dir / "quadruped_quat_test.json";
+  std::filesystem::path out_file = test_dir / "quadruped_quaternion_test.json";
   std::ofstream traj_out(out_file);
   json X_ref_data(X_ref);
   json U_ref_data(U_ref);

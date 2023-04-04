@@ -23,16 +23,16 @@ target_compile_definitions(altro_test_utils
   ALTRO_TEST_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
-add_executable(altro_api
-  altro_api.cpp
+add_executable(altro_api_test
+  altro_api_test.cpp
 )
-target_link_libraries(altro_api
+target_link_libraries(altro_api_test
   PRIVATE
   gtest_main
   altro::altro
   fmt::fmt
 )
-gtest_discover_tests(altro_api)
+gtest_discover_tests(altro_api_test)
 
 add_executable(double_integrator_test
   double_integrator_test.cpp
@@ -86,10 +86,10 @@ target_link_libraries(simple_quaternion_track_test
 )
 gtest_discover_tests(simple_quaternion_track_test)
 
-add_executable(quadruped_quat_test
-        quadruped_quat_test.cpp
+add_executable(quadruped_quaternion_test
+        quadruped_quaternion_test.cpp
         )
-target_link_libraries(quadruped_quat_test
+target_link_libraries(quadruped_quaternion_test
         PRIVATE
         gtest_main
         altro::altro
@@ -98,4 +98,4 @@ target_link_libraries(quadruped_quat_test
         Eigen3::Eigen
         nlohmann_json::nlohmann_json
         )
-gtest_discover_tests(quadruped_quat_test)
+gtest_discover_tests(quadruped_quaternion_test)

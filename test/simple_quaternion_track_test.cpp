@@ -154,23 +154,23 @@ TEST(SimpleQuaternionTrackTest, MPC) {
   ExplicitDynamicsJacobian dt_jac = ForwardEulerJacobian(n, m, ct_dyn, ct_jac);
 
   /// CONSTRAINTS ///
-  //  double omega_max = 0.3;
-  //  auto upper_bound_con = [omega_max](a_float *c, const a_float *x, const a_float *u) {
-  //    (void)x;
-  //    c[0] = u[0] - omega_max;
-  //    c[1] = u[1] - omega_max;
-  //    c[2] = u[2] - omega_max;
-  //  };
-  //
-  //  auto upper_bound_jac = [](a_float *jac, const a_float *x, const a_float *u) {
-  //    (void)x;
-  //    (void)u;
-  //    Eigen::Map<Eigen::Matrix<a_float, 3, n + m>> J(jac);
-  //    J.setZero();
-  //    J(0, 4) = 1;
-  //    J(1, 5) = 1;
-  //    J(2, 6) = 1;
-  //  };
+  double omega_max = 1.0;
+  auto upper_bound_con = [omega_max](a_float *c, const a_float *x, const a_float *u) {
+    (void) x;
+    c[0] = u[0] - omega_max;
+    c[1] = u[1] - omega_max;
+    c[2] = u[2] - omega_max;
+  };
+
+  auto upper_bound_jac = [](a_float *jac, const a_float *x, const a_float *u) {
+    (void) x;
+    (void) u;
+    Eigen::Map<Eigen::Matrix<a_float, 3, n - 1 + m>> J(jac);
+    J.setZero();
+    J(0, 3) = 1;
+    J(1, 4) = 1;
+    J(2, 5) = 1;
+  };
 
   /// SETUP ///
   AltroOptions opts;
@@ -192,8 +192,8 @@ TEST(SimpleQuaternionTrackTest, MPC) {
                              i, 0);
   }
 
-  //  solver.SetConstraint(upper_bound_con, upper_bound_jac, 3, ConstraintType::INEQUALITY,
-  //                       "upper bound", 0, N + 1);
+  solver.SetConstraint(upper_bound_con, upper_bound_jac, 3, ConstraintType::INEQUALITY,
+                       "upper bound", 0, N + 1);
   solver.SetInitialState(x_start.data(), n);
   solver.Initialize();
 
@@ -228,7 +228,8 @@ TEST(SimpleQuaternionTrackTest, MPC) {
   }
 
   // Save trajectory to JSON file
-  std::filesystem::path out_file = "/home/zixin/Dev/ALTRO/test/simple_quat_mpc.json";
+  fs::path test_dir = ALTRO_TEST_DIR;
+  fs::path out_file = test_dir / "simple_quaternion_track_test.json";
   std::ofstream traj_out(out_file);
   json X_ref_data(X_ref);
   json U_ref_data(U_ref);
