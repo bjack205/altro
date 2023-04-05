@@ -3,7 +3,7 @@ list(APPEND CMAKE_MESSAGE_CONTEXT cls)
 project(linesearch VERSION 0.1.0)
 set(CMAKE_C_STANDARD 11)
 
-option(linesearch_BUILD_TESTS "Build tests for linesearch library" ON)
+option(linesearch_BUILD_TESTS "Build tests for linesearch library" OFF)
 if (${PROJECT_IS_TOP_LEVEL} AND ${linesearch_BUILD_TESTS})
   message(STATUS "Downloading GoogleTest for testing linesearch library")
   FetchContent_Declare(googletest
