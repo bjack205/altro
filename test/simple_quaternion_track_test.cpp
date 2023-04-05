@@ -123,7 +123,7 @@ TEST(SimpleQuaternionTrackTest, MPC) {
   // rotate PI/6 around [0.2672612, 0.5345225, 0.8017837] in N*h seconds
   x_start << 1, 0, 0, 0;
   x_target << 0.9659258, 0.0691723, 0.1383446, 0.2075169;
-  u_ref << 0.1399377 / (N * h) + 0.2, 0.2798753 / (N * h) - 0.1, 0.419813 / (N * h) + 0.15;
+  u_ref << 0.1399377 / (N * h), 0.2798753 / (N * h), 0.419813 / (N * h);
 
   std::vector<Eigen::Vector4d> X_ref;
   std::vector<Eigen::Vector3d> U_ref;
@@ -154,7 +154,7 @@ TEST(SimpleQuaternionTrackTest, MPC) {
   ExplicitDynamicsJacobian dt_jac = ForwardEulerJacobian(n, m, ct_dyn, ct_jac);
 
   /// CONSTRAINTS ///
-  double omega_max = 1.0;
+  double omega_max = 0.5;
   auto upper_bound_con = [omega_max](a_float *c, const a_float *x, const a_float *u) {
     (void) x;
     c[0] = u[0] - omega_max;
@@ -193,7 +193,7 @@ TEST(SimpleQuaternionTrackTest, MPC) {
   }
 
   solver.SetConstraint(upper_bound_con, upper_bound_jac, 3, ConstraintType::INEQUALITY,
-                       "upper bound", 0, N + 1);
+                       "upper bound", 0, N);
   solver.SetInitialState(x_start.data(), n);
   solver.Initialize();
 

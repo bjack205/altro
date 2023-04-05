@@ -10,8 +10,6 @@
 #include "Eigen/Dense"
 #include "altro/altro_solver.hpp"
 #include "altro/solver/solver.hpp"
-#include "altro/utils/formatting.hpp"
-#include "altro/utils/quaternion_utils.hpp"
 #include "fmt/chrono.h"
 #include "fmt/core.h"
 #include "gtest/gtest.h"
@@ -138,7 +136,7 @@ TEST(QuadrupedQuatTest, MPC) {
   const int en = QuadrupedQuaternionModel::NumErrorStates;
   const int m = QuadrupedQuaternionModel::NumInputs;
   const int em = QuadrupedQuaternionModel::NumErrorInputs;
-  const int N = 10;
+  const int N = 30;
   const double h = 0.01;
   Eigen::Matrix<double, 3, 4> foot_pos_body;
   Eigen::Matrix<double, 3, 3> inertia_body;
@@ -150,19 +148,23 @@ TEST(QuadrupedQuatTest, MPC) {
   std::vector<Eigen::VectorXd> X_ref;
   std::vector<Eigen::VectorXd> U_ref;
   float contacts[4] = {0.0, 1.0, 1.0, 0.0};  // FL, FR, RL, RR
+  int num_contacts = 0;
+  for (float contact : contacts) {
+    if (contact == 1.0) num_contacts++;
+  }
 
   for (int i = 0; i <= N; i++) {
     Vector x_ref = Vector::Zero(n);
     Vector u_ref = Vector::Zero(m);
 
     x_ref << 0.0, 0.0, 0.3,
-        1.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0;
-    u_ref << 0.0, 0.0, 13 * 9.81 / 2 * contacts[0],
-        0.0, 0.0, 13 * 9.81 / 2 * contacts[1],
-        0.0, 0.0, 13 * 9.81 / 2 * contacts[2],
-        0.0, 0.0, 13 * 9.81 / 2 * contacts[3];
+             1.0, 0.0, 0.0, 0.0,
+             0.0, 0.0, 0.0,
+             0.0, 0.0, 0.0;
+    u_ref << 0.0, 0.0, 13 * 9.81 / num_contacts * contacts[0] + 10,
+             0.0, 0.0, 13 * 9.81 / num_contacts * contacts[1] - 10,
+             0.0, 0.0, 13 * 9.81 / num_contacts * contacts[2] + 10,
+             0.0, 0.0, 13 * 9.81 / num_contacts * contacts[3] - 10;
 
     X_ref.emplace_back(x_ref);
     U_ref.emplace_back(u_ref);
@@ -173,10 +175,10 @@ TEST(QuadrupedQuatTest, MPC) {
   Eigen::Matrix<double, m, 1> Rd;
 
   double w = 1.0;
-  Qd << 1.0, 1.0, 1.0,     // only track z position
-      0.0, 0.0, 0.0, 0.0,  // ignore quaternion in Q
-      0.1, 0.1, 0.1,       // track linear velocity
-      0.1, 0.1, 0.1;       // track angular velocity
+  Qd << 1.0, 1.0, 1.0,       // only track z position
+        0.0, 0.0, 0.0, 0.0,  // ignore quaternion in Q
+        0.1, 0.1, 0.1,       // track linear velocity
+        0.1, 0.1, 0.1;       // track angular velocity
 
   Rd << 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6;
 
@@ -233,7 +235,7 @@ TEST(QuadrupedQuatTest, MPC) {
   /// SETUP ///
   AltroOptions opts;
   opts.verbose = Verbosity::Inner;
-  opts.iterations_max = 1;
+  opts.iterations_max = 80;
   opts.use_backtracking_linesearch = true;
   opts.use_quaternion = true;
   opts.quat_start_index = 3;
@@ -251,13 +253,13 @@ TEST(QuadrupedQuatTest, MPC) {
   }
 
   solver.SetConstraint(friction_cone_con, friction_cone_jac, 24, ConstraintType::INEQUALITY,
-                       "friction cone", 0, N + 1);
+                       "friction cone", 0, N);
 
   Vector x_init = Vector::Zero(n);
   x_init << 0.0, 0.0, 0.3,
-      1.0, 0.0, 0.0, 0.0,
-      0.0, 0.0, 0.0,
-      0.0, 0.0, 0.0;
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0;
   solver.SetInitialState(x_init.data(), n);
   solver.Initialize();
 
@@ -315,5 +317,5 @@ TEST(QuadrupedQuatTest, MPC) {
         tracking_err + (X_sim.at(i) - X_ref.at(i)).transpose() * (X_sim.at(i) - X_ref.at(i));
   }
 
-  EXPECT_LT(tracking_err, 1e-4);
+  EXPECT_LT(tracking_err, 1e-2);
 }

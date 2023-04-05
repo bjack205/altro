@@ -651,12 +651,6 @@ a_float KnotPointData::CalcViolations() {
     ConstraintType cone = constraint_type_[j];
     ConicProjection(cone, constraint_dims_[j], constraint_val_[j].data(), v_[j].data());
     v_[j].noalias() -= constraint_val_[j];
-    double tmp_var = v_[j].lpNorm<Eigen::Infinity>();
-    if (tmp_var == 5) {
-      std::cout << "v_: " << v_[j].transpose() << std::endl;
-      std::cout << "constraint_val_: " << constraint_val_[j].transpose() << std::endl;
-      std::cout << tmp_var << std::endl;
-    }
     viol = std::max(viol, v_[j].lpNorm<Eigen::Infinity>());
   }
   return viol;
