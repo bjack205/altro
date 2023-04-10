@@ -339,9 +339,10 @@ void SimpleQuaternionModel::Jacobian(double *jac, const double *x, const double 
 
   Eigen::Map<Eigen::Matrix<double, 4, 7>> J(jac);
   J.setZero();
-  J << 0, -wx / 2, -wy / 2, -wz / 2, -qa / 2, -qb / 2, -qc / 2, wx / 2, 0, wz / 2, -wy / 2, qs / 2,
-      -qc / 2, qb / 2, wy / 2, -wz / 2, 0, wx / 2, qc / 2, qs / 2, -qa / 2, wz / 2, wy / 2, -wx / 2,
-      0, -qb / 2, qa / 2, qs / 2;
+  J << 0, -wx / 2, -wy / 2, -wz / 2, -qa / 2, -qb / 2, -qc / 2,
+       wx / 2, 0, wz / 2, -wy / 2, qs / 2, -qc / 2, qb / 2,
+       wy / 2, -wz / 2, 0, wx / 2, qc / 2, qs / 2, -qa / 2,
+       wz / 2, wy / 2, -wx / 2, 0, -qb / 2, qa / 2, qs / 2;
 }
 
 void QuadrupedQuaternionModel::Dynamics(double *x_dot, const double *x, const double *u,

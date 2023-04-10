@@ -67,7 +67,7 @@ class SimpleQuaternionModel {
   void Jacobian(double *jac, const double *x, const double *u) const;
 
   static constexpr int NumStates = 4;  // Quaternion: [qs, qa, qb, qc]
-  static constexpr int NumInputs = 3;  // Angular Velocity: [omega_x, omgea_y, omega_z]
+  static constexpr int NumInputs = 3;  // Angular Velocity: [omega_x, omega_y, omega_z]
 
   static constexpr int NumErrorStates = 3;
   static constexpr int NumErrorInputs = 3;

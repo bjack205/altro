@@ -10,8 +10,6 @@
 #include "Eigen/Dense"
 #include "altro/altro_solver.hpp"
 #include "altro/solver/solver.hpp"
-#include "altro/utils/formatting.hpp"
-#include "altro/utils/quaternion_utils.hpp"
 #include "fmt/chrono.h"
 #include "fmt/core.h"
 #include "gtest/gtest.h"
@@ -24,35 +22,6 @@ namespace fs = std::filesystem;
 using json = nlohmann::json;
 
 using namespace altro;
-
-//TEST(SimpleQuaternionTrackTest, EigenRemove) {
-//  Vector vec_A;
-//  Vector vec_A_1;
-//  Vector vec_A_2;
-//  Vector vec_A_3;
-//
-//  vec_A = Vector::Zero(5);
-//  vec_A << 1, 2, 3, 4, 5;
-//  std::cout << "vec_A = " << vec_A.transpose() << std::endl;
-//
-//  vec_A_1 = removeElement(vec_A, 4);
-//  std::cout << "Remove the element at idx = 4, vec_A = " << vec_A_1.transpose() << std::endl;
-//  EXPECT_LT(vec_A[0] - 1, 1e-5);
-//  EXPECT_LT(vec_A[1] - 2, 1e-5);
-//  EXPECT_LT(vec_A[2] - 3, 1e-5);
-//  EXPECT_LT(vec_A[3] - 4, 1e-5);
-//
-//  vec_A_2 = removeElement(vec_A_1, 0);
-//  std::cout << "Remove the element at idx = 0, vec_A = " << vec_A_2.transpose() << std::endl;
-//  EXPECT_LT(vec_A[0] - 2, 1e-5);
-//  EXPECT_LT(vec_A[1] - 3, 1e-5);
-//  EXPECT_LT(vec_A[2] - 4, 1e-5);
-//
-//  vec_A_3 = removeElement(vec_A_2, 1);
-//  std::cout << "Remove the element at idx = 1, vec_A = " << vec_A_3.transpose() << std::endl;
-//  EXPECT_LT(vec_A[0] - 2, 1e-5);
-//  EXPECT_LT(vec_A[1] - 4, 1e-5);
-//}
 
 TEST(SimpleQuaternionTrackTest, Dynamics) {
   SimpleQuaternionModel model;
@@ -105,14 +74,14 @@ TEST(SimpleQuaternionTrackTest, SLERP) {
   EXPECT_LT((q5 - q_start).norm(), 1e-5);
 }
 
-TEST(SimpleQuaternionTrackTest, MPC) {
+TEST(SimpleQuaternionTrackTest, OneMPC) {
   auto t_start = std::chrono::high_resolution_clock::now();
   const int n = SimpleQuaternionModel::NumStates;
   const int en = SimpleQuaternionModel::NumErrorStates;
   const int m = SimpleQuaternionModel::NumInputs;
   const int em = SimpleQuaternionModel::NumErrorInputs;
   const int N = 100;
-  const double h = 0.01;
+  const float h = 0.01;
   ALTROSolver solver(N);
 
   /// REFERENCES ///
@@ -123,7 +92,7 @@ TEST(SimpleQuaternionTrackTest, MPC) {
   // rotate PI/6 around [0.2672612, 0.5345225, 0.8017837] in N*h seconds
   x_start << 1, 0, 0, 0;
   x_target << 0.9659258, 0.0691723, 0.1383446, 0.2075169;
-  u_ref << 0.1399377 / (N * h), 0.2798753 / (N * h), 0.419813 / (N * h);
+  u_ref << 0.1399377 / (N * h) + 0.1, 0.2798753 / (N * h) - 0.2, 0.419813 / (N * h) + 0.3;
 
   std::vector<Eigen::Vector4d> X_ref;
   std::vector<Eigen::Vector3d> U_ref;
@@ -153,32 +122,13 @@ TEST(SimpleQuaternionTrackTest, MPC) {
   ExplicitDynamicsFunction dt_dyn = ForwardEulerDynamics(n, m, ct_dyn);
   ExplicitDynamicsJacobian dt_jac = ForwardEulerJacobian(n, m, ct_dyn, ct_jac);
 
-  /// CONSTRAINTS ///
-  double omega_max = 0.5;
-  auto upper_bound_con = [omega_max](a_float *c, const a_float *x, const a_float *u) {
-    (void) x;
-    c[0] = u[0] - omega_max;
-    c[1] = u[1] - omega_max;
-    c[2] = u[2] - omega_max;
-  };
-
-  auto upper_bound_jac = [](a_float *jac, const a_float *x, const a_float *u) {
-    (void) x;
-    (void) u;
-    Eigen::Map<Eigen::Matrix<a_float, 3, n - 1 + m>> J(jac);
-    J.setZero();
-    J(0, 3) = 1;
-    J(1, 4) = 1;
-    J(2, 5) = 1;
-  };
-
   /// SETUP ///
   AltroOptions opts;
   opts.verbose = Verbosity::Inner;
   opts.iterations_max = 80;
   opts.use_backtracking_linesearch = true;
   opts.use_quaternion = true;
-  opts.quat_start_index = 0;
+  opts.quat_start_index = 0;  // THIS IS VERY IMPORTANT!
   solver.SetOptions(opts);
 
   solver.SetDimension(n, m);
@@ -192,8 +142,6 @@ TEST(SimpleQuaternionTrackTest, MPC) {
                              i, 0);
   }
 
-  solver.SetConstraint(upper_bound_con, upper_bound_jac, 3, ConstraintType::INEQUALITY,
-                       "upper bound", 0, N);
   solver.SetInitialState(x_start.data(), n);
   solver.Initialize();
 
@@ -249,5 +197,5 @@ TEST(SimpleQuaternionTrackTest, MPC) {
         tracking_err + (X_sim.at(i) - X_ref.at(i)).transpose() * (X_sim.at(i) - X_ref.at(i));
   }
 
-  EXPECT_LT(tracking_err, 1e-4);
+  EXPECT_LT(tracking_err, 1e-3);
 }

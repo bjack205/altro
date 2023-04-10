@@ -513,7 +513,6 @@ ErrorCodes SolverImpl::Solve() {
     err = ForwardPass(&alpha);
     if (!(err == ErrorCodes::NoError || err == ErrorCodes::MeritFunctionGradientTooSmall)) {
       PrintErrorCode(err);
-      std::cout << "Merit Function Gradient Too Small" << std::endl;
       stop_iterating = true;
     }
 
