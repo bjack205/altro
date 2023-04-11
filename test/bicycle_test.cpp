@@ -268,7 +268,7 @@ TEST_F(BicycleMPC, TrackingMPC_2Solves) {
   fmt::print("                 MPC Solve\n");
   fmt::print("#############################################\n");
   // MPC Setup
-  int Nsim = 200;
+  int Nsim = 450;
   int mpc_iter = 0;
   std::vector<Vector> x_sim;
   std::vector<Vector> u_sim;
@@ -288,6 +288,7 @@ TEST_F(BicycleMPC, TrackingMPC_2Solves) {
   AltroOptions opts;
   opts.verbose = Verbosity::Silent;
   opts.iterations_max = 80;
+  opts.tol_stationarity = 1e-2;
   opts.use_backtracking_linesearch = true;
   solver.SetOptions(opts);
 
@@ -297,6 +298,17 @@ TEST_F(BicycleMPC, TrackingMPC_2Solves) {
   a_float c;
   Vector q(n);
   Vector u_mpc(m);
+
+  // Build container for the mpc trajectories at each solve iteration
+  int N_mpc = solver.GetHorizonLength();
+  std::vector<std::vector<Vector>> mpc_hist(Nsim);
+  for (int i = 0; i < Nsim; ++i) {
+    mpc_hist[i].resize(N_mpc + 1);
+    for (int k = 0; k <= N_mpc; ++k) {
+      mpc_hist[i][k] = Vector::Zero(n);
+    }
+  }
+  bool record_mpc_trajectories = true;
 
   auto t_start = std::chrono::high_resolution_clock::now();
   while (mpc_iter < Nsim) {
@@ -315,6 +327,13 @@ TEST_F(BicycleMPC, TrackingMPC_2Solves) {
     tracking_error.emplace_back((x_sim[mpc_iter + 1] - x_ref[mpc_iter + 1]).norm());
 //    fmt::print("mpc iter {}: err = {}, solve iters = {}\n", mpc_iter, tracking_error, solve_iters);
 
+    // Record trajectory
+    if (record_mpc_trajectories) {
+      for (int k = 0; k <= N_mpc; ++k) {
+        solver.GetState(mpc_hist[mpc_iter][k].data(), k);
+      }
+    }
+
     // Set new reference trajectory
     ++mpc_iter;
     for (int k = 0; k <= N; ++k) {
@@ -328,7 +347,6 @@ TEST_F(BicycleMPC, TrackingMPC_2Solves) {
       }
       solver.UpdateLinearCosts(q.data(), nullptr, c, k);
     }
-
     // Set Initial state
     solver.SetInitialState(x_sim[mpc_iter].data(), n);
 
@@ -356,5 +374,10 @@ TEST_F(BicycleMPC, TrackingMPC_2Solves) {
   data["tf"] = Nsim * h;
   data["solve_iters"] = iters_data;
   data["tracking_error"] = err_data;
+  if (record_mpc_trajectories) {
+    json mpc_traj_data(mpc_hist);
+    data["mpc_hist"] = mpc_traj_data;
+  }
   traj_out << std::setw(4) << data;
 }
+

@@ -73,14 +73,14 @@ endif()
 
 # Arduino library installation
 option(ALTRO_ENABLE_RUNTIME_EXCEPTIONS "Enable C++ runtime exceptions. If disabled, error return codes will be returned instead." OFF)
-option(ALTRO_ENABLE_ARDUINO_LIB_INSTALL "Add the install_arduino_lib target"  ON)
+option(ALTRO_ENABLE_ARDUINO_LIB_INSTALL "Add the install_arduino_lib target"  OFF)
 set(ALTRO_ARDUINO_LIB_INSTALL_DIR $ENV{HOME}/Arduino/libraries CACHE FILEPATH "Directory where the altro Arduino library should be installed")
 cmake_print_variables(ALTRO_ARDUINO_LIB_INSTALL_DIR)
 
 #############################################
 # Dependencies
 #############################################
-add_subdirectory(deps)
+include(deps/CMakeLists.txt)
 
 #############################################
 # Documentation

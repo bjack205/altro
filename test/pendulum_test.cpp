@@ -1,8 +1,11 @@
+#include <chrono>
+
 #include "Eigen/Dense"
 #include "altro/altro_solver.hpp"
 #include "altro/solver/solver.hpp"
 #include "altro/utils/formatting.hpp"
 #include "fmt/core.h"
+#include "fmt/chrono.h"
 #include "gtest/gtest.h"
 #include "test_utils.hpp"
 
@@ -190,7 +193,14 @@ TEST(Pendulum, GoalConstrained) {
   opts.verbose = Verbosity::Inner;
   opts.iterations_max = 100;
   solver.SetOptions(opts);
+  auto t_start = std::chrono::high_resolution_clock::now();
   SolveStatus status = solver.Solve();
+  auto t_end = std::chrono::high_resolution_clock::now();
+  using SecondsDouble = std::chrono::duration<double, std::ratio<1>>;
+  auto t_solve = std::chrono::duration_cast<SecondsDouble>(t_end - t_start);
+  fmt::print("Solve time = {} ({} Hz)\n", t_solve, 1.0 / t_solve.count());
+
+
   EXPECT_EQ(status, SolveStatus::Success);
   fmt::print("status = {}\n", (int)status);
 
