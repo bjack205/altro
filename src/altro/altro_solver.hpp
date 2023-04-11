@@ -54,6 +54,9 @@ class ALTROSolver {
    */
   ErrorCodes SetTimeStep(float h, int k_start = AllIndices, int k_stop = 0);
 
+  ErrorCodes SetLinearDynamics(int n2, int n, int m, const a_float* A, const a_float* B,
+                               const a_float* f, int k_start = AllIndices, int k_stop = 0);
+
   /**
    * @brief Specify the dynamics function and dynamics Jacobian at a knot point (or range or knot
    * points)

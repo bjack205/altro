@@ -65,6 +65,21 @@ ErrorCodes ALTROSolver::SetTimeStep(float h, int k_start, int k_stop) {
 /////////////////////////////////////////////
 // Set Dynamics
 /////////////////////////////////////////////
+
+ErrorCodes ALTROSolver::SetLinearDynamics(int n2, int n, int m, const altro::a_float *A,
+                                          const altro::a_float *B, const altro::a_float *f,
+                                          int k_start, int k_stop) {
+  ErrorCodes err;
+  err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Exclusive);
+  err = AssertDimensionsAreSet(k_start, k_stop, "Cannot set the dynamics");
+  if (err != ErrorCodes::NoError) return err;
+  for (int k = k_start; k < k_stop; ++k) {
+    err = solver_->data_[k].SetLinearDynamics(n2, n, m, A, B, f);
+    if (err != ErrorCodes::NoError) return err;
+  }
+  return err;
+}
+
 ErrorCodes ALTROSolver::SetExplicitDynamics(ExplicitDynamicsFunction dynamics_function,
                                             ExplicitDynamicsJacobian dynamics_jacobian, int k_start,
                                             int k_stop) {
@@ -88,7 +103,7 @@ ErrorCodes ALTROSolver::SetCostFunction(CostFunction cost_function, CostGradient
   ErrorCodes err = CheckKnotPointIndices(k_start, k_stop, LastIndexMode::Inclusive);
   if (err != ErrorCodes::NoError) return err;
 
-  for (int k = k_stop; k < k_stop; ++k) {
+  for (int k = k_start; k < k_stop; ++k) {
     solver_->data_[k].SetCostFunction(cost_function, cost_gradient, cost_hessian);
   }
 
@@ -102,7 +117,7 @@ ErrorCodes ALTROSolver::SetDiagonalCost(int num_states, int num_inputs, const a_
   err = AssertDimensionsAreSet(k_start, k_stop, "Cannot set the cost function");
   if (err != ErrorCodes::NoError) return err;
 
-  for (int k = k_stop; k < k_stop; ++k) {
+  for (int k = k_start; k < k_stop; ++k) {
     int n = this->GetStateDim(k);
     int m = this->GetInputDim(k);
     if (n != num_states) return ErrorCodes::DimensionMismatch;
