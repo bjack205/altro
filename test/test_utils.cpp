@@ -43,7 +43,7 @@ void discrete_double_integrator_jacobian(double *jac, const double *x, const dou
 const double kPendulumMass = 1.0;
 const double kPendulumLength = 0.5;
 const double kPendulumFrictionCoeff = 0.1;
-const double kPendulumInertia = 0.25;
+// const double kPendulumInertia = 0.25;
 const double kPendulumGravity = 9.81;
 
 void pendulum_dynamics(double *xnext, const double *x, const double *u) {
@@ -82,7 +82,8 @@ void pendulum_jacobian(double *jac, const double *x, const double *u) {
 }
 
 altro::ExplicitDynamicsFunction MidpointDynamics(int n, int m, ContinuousDynamicsFunction f) {
-  auto fd = [n, m, f](double *xn, const double *x, const double *u, float h) {
+  (void)m;
+  auto fd = [n, f](double *xn, const double *x, const double *u, float h) {
     static Eigen::VectorXd xm(n);
     Eigen::Map<Eigen::VectorXd> xn_vec(xn, n);
     Eigen::Map<const Eigen::VectorXd> x_vec(x, n);
@@ -133,7 +134,8 @@ altro::ExplicitDynamicsJacobian MidpointJacobian(int n, int m, ContinuousDynamic
 
 altro::ExplicitDynamicsFunction ForwardEulerDynamics(int n, int m,
                                                      const ContinuousDynamicsFunction f) {
-  auto fd = [n, m, f](double *xn, const double *x, const double *u, float h) {
+  (void)m;
+  auto fd = [n, f](double *xn, const double *x, const double *u, float h) {
     Eigen::Map<Eigen::VectorXd> xn_vec(xn, n);
     Eigen::Map<const Eigen::VectorXd> x_vec(x, n);
     Eigen::Map<const Eigen::VectorXd> u_vec(u, n);
@@ -279,7 +281,7 @@ void ReadScottyTrajectory(int *Nref, float *tref, std::vector<Eigen::Vector4d> *
 
   std::ifstream f(scotty_file);
   json data = json::parse(f);
-  auto it = data.find("N");
+  //  auto it = data.find("N");
   for (auto &el : data.items()) {
     if (el.key() == "N") {
       *Nref = el.value();
@@ -413,7 +415,7 @@ void QuadrupedQuaternionModel::Jacobian(double *jac, const double *x, const doub
   // domegadot/domega
   dfc_dx.block<3, 3>(10, 10) =
       -inertia_body.inverse() * (altro::skew(x_vec.segment<3>(10)) * inertia_body -
-                                  altro::skew(inertia_body * x_vec.segment<3>(10)));
+                                 altro::skew(inertia_body * x_vec.segment<3>(10)));
 
   // Calculate dfc_du
   Eigen::MatrixXd dfc_du(13, 12);

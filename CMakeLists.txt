@@ -6,6 +6,7 @@ list(APPEND CMAKE_MESSAGE_CONTEXT altro)
 project(altro VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 17)
+cmake_policy(SET CMP0077 NEW)
 
 # Organization info
 set(ORGANIZATION_NAME_FULL "Robotic Exploration Lab")
@@ -97,7 +98,7 @@ endif()
 #############################################
 
 # Output all binaries
-add_compile_options(-Wall -Wextra -pedantic -Werror -march=native)
+add_compile_options(-Wall -Wextra -Werror -march=native)
 add_subdirectory(src)
 
 #############################################

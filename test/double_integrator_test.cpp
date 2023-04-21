@@ -185,16 +185,13 @@ TEST(DoubleIntegrator, SolveGoalConstraint) {
   uf.setZero();
 
   // Goal Constraint
-  auto goalcon = [num_states, xf](double *c, const double *x, const double *u) {
-    int n = num_states;
+  auto goalcon = [n=num_states, xf](double *c, const double *x, const double *u) {
     (void)u;
     for (int i = 0; i < n; ++i) {
       c[i] = x[i] - xf[i];
     }
   };
-  auto goaljac = [num_states, num_inputs](double *jac, const double *x, const double *u) {
-    int n = num_states;
-    int m = num_inputs;
+  auto goaljac = [n=num_states, m=num_inputs](double *jac, const double *x, const double *u) {
     (void)x;
     (void)u;
     Eigen::Map<Eigen::MatrixXd> J(jac, n, n + m);
@@ -273,16 +270,13 @@ TEST(DoubleIntegrator, ControlBounds) {
   uf.setZero();
 
   // Goal Constraint
-  auto goalcon = [num_states, xf](double *c, const double *x, const double *u) {
-    int n = num_states;
+  auto goalcon = [n=num_states, xf](double *c, const double *x, const double *u) {
     (void)u;
     for (int i = 0; i < n; ++i) {
       c[i] = x[i] - xf[i];
     }
   };
-  auto goaljac = [num_states, num_inputs](double *jac, const double *x, const double *u) {
-    int n = num_states;
-    int m = num_inputs;
+  auto goaljac = [n=num_states, m=num_inputs](double *jac, const double *x, const double *u) {
     (void)x;
     (void)u;
     Eigen::Map<Eigen::MatrixXd> J(jac, n, n + m);
@@ -302,7 +296,7 @@ TEST(DoubleIntegrator, ControlBounds) {
       c[i + m] = -u_bound[i] - u[i];
     }
   };
-  auto ubnd_jac = [u_bnd](double *jac, const double *x, const double *u) {
+  auto ubnd_jac = [](double *jac, const double *x, const double *u) {
     (void)x;
     (void)u;
     int n = 4;
@@ -392,16 +386,13 @@ TEST(DoubleIntegrator, SOCControlBounds) {
   uf.setZero();
 
   // Goal Constraint
-  auto goalcon = [num_states, xf](double *c, const double *x, const double *u) {
-    int n = num_states;
+  auto goalcon = [n=num_states, xf](double *c, const double *x, const double *u) {
     (void)u;
     for (int i = 0; i < n; ++i) {
       c[i] = x[i] - xf[i];
     }
   };
-  auto goaljac = [num_states, num_inputs](double *jac, const double *x, const double *u) {
-    int n = num_states;
-    int m = num_inputs;
+  auto goaljac = [n=num_states, m=num_inputs](double *jac, const double *x, const double *u) {
     (void)x;
     (void)u;
     Eigen::Map<Eigen::MatrixXd> J(jac, n, n + m);
@@ -420,7 +411,7 @@ TEST(DoubleIntegrator, SOCControlBounds) {
     }
     c[m] = u_bnd;
   };
-  auto usoc_jac = [u_bnd](double *jac, const double *x, const double *u) {
+  auto usoc_jac = [](double *jac, const double *x, const double *u) {
     (void)x;
     (void)u;
     int n = 4;

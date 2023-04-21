@@ -8,6 +8,7 @@ set(FMT_INSTALL ON CACHE BOOL "..." FORCE)
 FetchContent_MakeAvailable(fmt)
 list(POP_BACK CMAKE_MESSAGE_CONTEXT)
 
+
 # Add Eigen
 list(APPEND CMAKE_MESSAGE_CONTEXT eigen)
 set(EIGEN_BUILD_DOC OFF CACHE BOOL "Enable creation of Eigen documentation." FORCE)
