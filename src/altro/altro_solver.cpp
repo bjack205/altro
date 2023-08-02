@@ -359,6 +359,33 @@ ErrorCodes ALTROSolver::GetDualDynamics(a_float *y, int k) const {
   return ErrorCodes::NoError;
 }
 
+ErrorCodes ALTROSolver::GetFeedbackGain(a_float *K, int k) const {
+  int k_stop = k + 1;
+  ErrorCodes err = CheckKnotPointIndices(k, k_stop, LastIndexMode::Inclusive);
+  err = AssertDimensionsAreSet(k, k_stop);
+  if (err != ErrorCodes::NoError) {
+    return ALTRO_THROW(fmt::format("Error in GetFeedbackGain with k = {}", k), err);
+  }
+
+  int n = GetStateDim(k);
+  int m = GetInputDim(k);
+  Eigen::Map<Eigen::MatrixXd>(K, m, n) = solver_->data_[k].K_;
+  return ErrorCodes::NoError;
+}
+
+ErrorCodes ALTROSolver::GetFeedforwardGain(a_float *d, int k) const {
+  int k_stop = k + 1;
+  ErrorCodes err = CheckKnotPointIndices(k, k_stop, LastIndexMode::Inclusive);
+  err = AssertDimensionsAreSet(k, k_stop);
+  if (err != ErrorCodes::NoError) {
+    return ALTRO_THROW(fmt::format("Error in GetFeedforwardGain with k = {}", k), err);
+  }
+
+  int m = GetInputDim(k);
+  Eigen::Map<Eigen::VectorXd>(d, m) = solver_->data_[k].d_;
+  return ErrorCodes::NoError;
+}
+
 /***************************************************************************************************
  * Private methods
  ***************************************************************************************************/
